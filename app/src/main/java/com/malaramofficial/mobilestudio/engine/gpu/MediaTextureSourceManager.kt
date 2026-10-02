@@ -104,6 +104,27 @@ class MediaTextureSourceManager(
         renderPipeline.releaseMediaInput(sourceId)
     }
 
+
+    /** Updates Media3 playback without touching the GL surface or encoder. */
+    fun setPlaying(sourceId: String, playing: Boolean): Boolean {
+        val player = players[sourceId] ?: return false
+        android.os.Handler(player.applicationLooper).post {
+            player.playWhenReady = playing
+        }
+        return true
+    }
+
+    /** Seeks an existing media player without recreating it. */
+    fun seekTo(sourceId: String, positionMs: Long): Boolean {
+        val player = players[sourceId] ?: return false
+        android.os.Handler(player.applicationLooper).post {
+            player.seekTo(positionMs.coerceAtLeast(0L))
+        }
+        return true
+    }
+
+    fun currentPosition(sourceId: String): Long? = players[sourceId]?.currentPosition
+
     fun release() {
         val ids = synchronized(this) { players.keys.toList() }
         ids.forEach { releaseSource(it) }
