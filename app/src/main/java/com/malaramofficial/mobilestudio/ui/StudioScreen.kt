@@ -351,9 +351,7 @@ fun StudioScreen(
             source = source,
             onDismiss = { sourceToConfigure = null },
             onApply = { newTransform, newCrop, newOpacity ->
-                viewModel.updateTransform(sceneId, source.id, newTransform)
-                viewModel.updateCrop(sceneId, source.id, newCrop)
-                viewModel.updateOpacity(sceneId, source.id, newOpacity)
+                viewModel.applySourceSettings(sceneId, source.id, newTransform, newCrop, newOpacity)
                 sourceToConfigure = null
             }
         )
