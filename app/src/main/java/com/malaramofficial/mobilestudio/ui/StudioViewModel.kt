@@ -474,9 +474,9 @@ class StudioViewModel(
     }
 
     /**
-     * Applies all editor fields in one coroutine and in order.
-     * Running these writes concurrently can make each update read the same
-     * old Scene snapshot; the last save then silently overwrites earlier edits.
+     * Applies all editor fields as one scene update.
+     * This avoids repeated scene emissions that can make a media player
+     * synchronize/recreate while the user is only changing its transform.
      */
     fun applySourceSettings(
         sceneId: String,
@@ -486,20 +486,14 @@ class StudioViewModel(
         opacity: Float
     ) {
         viewModelScope.launch {
-            val transformResult = sourceManager.updateTransform(sceneId, sourceId, transform)
-            if (transformResult is AppResult.Error) {
-                handleResult(transformResult)
-                return@launch
-            }
-
-            val cropResult = sourceManager.updateCrop(sceneId, sourceId, crop)
-            if (cropResult is AppResult.Error) {
-                handleResult(cropResult)
-                return@launch
-            }
-
-            val opacityResult = sourceManager.updateOpacity(sceneId, sourceId, opacity)
-            handleResult(opacityResult)
+            val result = sourceManager.updateSourceSettings(
+                sceneId = sceneId,
+                sourceId = sourceId,
+                transform = transform,
+                crop = crop,
+                opacity = opacity
+            )
+            handleResult(result)
         }
     }
 
