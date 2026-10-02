@@ -34,6 +34,8 @@ class CameraSourceEngine(
     private var activeCamera: Camera? = null
     private var activePreview: Preview? = null
     private var currentLens: LensFacing = LensFacing.BACK
+    private var boundInputSurface: CameraInputSurface? = null
+    private var cameraRequestId: Long = 0L
 
     var currentResolution: Size = Size(1920, 1080)
         private set
@@ -48,22 +50,35 @@ class CameraSourceEngine(
         targetWidth: Int = 1920,
         targetHeight: Int = 1080
     ) {
+        // Activity onCreate and onResume may both request the same camera.
+        // Avoid rebinding an already active or currently starting session.
+        if (
+            currentLens == lens &&
+            boundInputSurface === inputSurface &&
+            (_cameraState.value == CameraState.Starting || activeCamera != null)
+        ) return
+
+        val requestId = ++cameraRequestId
         _cameraState.value = CameraState.Starting
         currentLens = lens
+        boundInputSurface = inputSurface
         currentResolution = Size(targetWidth, targetHeight)
 
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             try {
                 val provider = cameraProviderFuture.get()
+                if (requestId != cameraRequestId) return@addListener
                 cameraProvider = provider
 
                 bindCameraUseCases(lifecycleOwner, provider, inputSurface, lens, targetWidth, targetHeight)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize CameraProvider", e)
-                _cameraState.value = CameraState.Error(
-                    AppError.Camera.ConfigurationFailed(e)
-                )
+                if (requestId == cameraRequestId) {
+                    Log.e(TAG, "Failed to initialize CameraProvider", e)
+                    _cameraState.value = CameraState.Error(
+                        AppError.Camera.ConfigurationFailed(e)
+                    )
+                }
             }
         }, mainExecutor)
     }
@@ -154,10 +169,12 @@ class CameraSourceEngine(
     }
 
     fun stopCamera() {
+        cameraRequestId += 1
         try {
             cameraProvider?.unbindAll()
             activeCamera = null
             activePreview = null
+            boundInputSurface = null
             _cameraState.value = CameraState.Idle
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping camera", e)
