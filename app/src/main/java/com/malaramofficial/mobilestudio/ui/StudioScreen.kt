@@ -138,6 +138,8 @@ fun StudioScreen(
     var showAddSourceDialog by remember { mutableStateOf(false) }
     var sourceToConfigure by remember { mutableStateOf<Pair<String, Source>?>(null) }
     var showLiveDialog by remember { mutableStateOf(false) }
+    var showLiveQualityDialog by remember { mutableStateOf(false) }
+    val liveBitrateKbps by viewModel.liveBitrateKbps.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -276,6 +278,8 @@ fun StudioScreen(
             isLive = state.isBroadcastingLive,
             onLive = { showLiveDialog = true },
             onStopLive = { viewModel.stopLive() },
+            liveBitrateKbps = liveBitrateKbps,
+            onQualityClick = { showLiveQualityDialog = true },
             isRecording = state.isRecordingToFile,
             onRecord = { viewModel.startRecording() },
             onStopRecording = { viewModel.stopRecording() },
@@ -288,11 +292,23 @@ fun StudioScreen(
         LiveStreamKeyDialog(
             savedStreamKey = viewModel.getSavedStreamKey(),
             onDismiss = { showLiveDialog = false },
-            onStart = { key ->
+            onStart = { key, bitrateKbps ->
                 showLiveDialog = false
-                viewModel.startLive(key)
+                viewModel.startLive(key, bitrateKbps)
             },
             onClear = { viewModel.clearSavedStreamKey() }
+        )
+    }
+
+    if (showLiveQualityDialog) {
+        LiveQualityDialog(
+            currentBitrateKbps = liveBitrateKbps,
+            isLive = state.isBroadcastingLive,
+            onDismiss = { showLiveQualityDialog = false },
+            onApply = { bitrateKbps ->
+                if (state.isBroadcastingLive) viewModel.setLiveBitrateKbps(bitrateKbps)
+                showLiveQualityDialog = false
+            }
         )
     }
 
@@ -1083,6 +1099,8 @@ private fun StudioBottomControlDeck(
     isLive: Boolean,
     onLive: () -> Unit,
     onStopLive: () -> Unit,
+    liveBitrateKbps: Int,
+    onQualityClick: () -> Unit,
     isRecording: Boolean,
     onRecord: () -> Unit,
     onStopRecording: () -> Unit,
@@ -1146,6 +1164,29 @@ private fun StudioBottomControlDeck(
                     Text("END LIVE", fontWeight = FontWeight.Bold)
                 }
             }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "VIDEO: ${liveBitrateKbps} kbps",
+                    color = if (isLive) StudioGreenLive else StudioTextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedButton(
+                    onClick = onQualityClick,
+                    modifier = Modifier.height(42.dp),
+                    border = BorderStroke(1.dp, StudioCyan),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StudioCyan)
+                ) {
+                    Icon(Icons.Default.Tune, contentDescription = "Stream Quality", modifier = Modifier.size(17.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(if (isLive) "ADJUST LIVE" else "QUALITY")
+                }
+            }
         }
     }
 }
@@ -1154,11 +1195,12 @@ private fun StudioBottomControlDeck(
 private fun LiveStreamKeyDialog(
     savedStreamKey: String,
     onDismiss: () -> Unit,
-    onStart: (String) -> Unit,
+    onStart: (String, Int) -> Unit,
     onClear: () -> Unit
 ) {
     var streamKey by remember { mutableStateOf(savedStreamKey) }
     var editing by remember { mutableStateOf(savedStreamKey.isBlank()) }
+    var selectedBitrate by remember { mutableIntStateOf(6000) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1170,6 +1212,16 @@ private fun LiveStreamKeyDialog(
                     fontSize = 12.sp,
                     color = StudioCyan
                 )
+                Text("Initial video bitrate", fontSize = 12.sp, color = StudioTextSecondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(2500, 4000, 6000, 8000).forEach { bitrate ->
+                        FilterChipLike(
+                            label = "${bitrate / 1000f}M",
+                            selected = selectedBitrate == bitrate,
+                            onClick = { selectedBitrate = bitrate }
+                        )
+                    }
+                }
                 Text(
                     if (savedStreamKey.isBlank()) "Enter your stream key once. It will be saved securely on this device." else "Saved stream key found. Use it directly or edit it.",
                     fontSize = 12.sp,
@@ -1196,7 +1248,7 @@ private fun LiveStreamKeyDialog(
         },
         confirmButton = {
             Button(
-                onClick = { if (streamKey.isNotBlank()) onStart(streamKey) },
+                onClick = { if (streamKey.isNotBlank()) onStart(streamKey, selectedBitrate) },
                 enabled = streamKey.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = StudioCyan)
             ) {
