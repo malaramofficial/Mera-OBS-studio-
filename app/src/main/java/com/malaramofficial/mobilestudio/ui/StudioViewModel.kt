@@ -1,5 +1,7 @@
 package com.malaramofficial.mobilestudio.ui
 
+import androidx.media3.common.util.UnstableApi
+
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import android.content.Context
@@ -54,6 +56,7 @@ private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third:
  * Coordinates UI state with the domain [SceneManager], [SourceManager],
  * GPU Compositor [StudioRenderPipeline], and [CameraSourceEngine].
  */
+@UnstableApi
 class StudioViewModel(
     val sceneManager: SceneManager,
     val sourceManager: SourceManager,
