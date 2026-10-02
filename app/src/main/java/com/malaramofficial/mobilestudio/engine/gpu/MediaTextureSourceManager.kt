@@ -5,12 +5,14 @@ import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.util.UnstableApi
 import com.malaramofficial.mobilestudio.domain.model.scene.Scene
 import com.malaramofficial.mobilestudio.domain.model.scene.SourceType
 import com.malaramofficial.mobilestudio.domain.model.source.SourceConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@UnstableApi
 class MediaTextureSourceManager(
     private val context: Context,
     private val renderPipeline: StudioRenderPipeline
@@ -55,7 +57,11 @@ class MediaTextureSourceManager(
 
     private fun releaseSource(sourceId: String) {
         signatures.remove(sourceId)
-        synchronized(this) { players.remove(sourceId)?.release() }
+        synchronized(this) {
+            players.remove(sourceId)?.let { player ->
+                android.os.Handler(player.applicationLooper).post { player.release() }
+            }
+        }
         renderPipeline.releaseMediaInput(sourceId)
     }
 
