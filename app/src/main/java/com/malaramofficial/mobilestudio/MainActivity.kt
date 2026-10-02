@@ -49,10 +49,16 @@ class MainActivity : ComponentActivity() {
             return@registerForActivityResult
         }
 
-        val config = source.config as? SourceConfig.Screen ?: SourceConfig.Screen()
-        val width = config.captureWidth.coerceAtMost(1920)
-        val height = config.captureHeight.coerceAtMost(1920)
-        val density = resources.displayMetrics.densityDpi
+        // Capture the actual display aspect ratio. The compositor will fit it
+        // into the 9:16 program canvas without cutting the gameplay.
+        val metrics = resources.displayMetrics
+        val sourceWidth = metrics.widthPixels.coerceAtLeast(1)
+        val sourceHeight = metrics.heightPixels.coerceAtLeast(1)
+        val maxDimension = 1920f
+        val scale = minOf(1f, maxDimension / maxOf(sourceWidth, sourceHeight).toFloat())
+        val width = (sourceWidth * scale).toInt().coerceAtLeast(1)
+        val height = (sourceHeight * scale).toInt().coerceAtLeast(1)
+        val density = metrics.densityDpi
 
         ContextCompat.startForegroundService(
             this,
