@@ -1316,6 +1316,15 @@ private fun AddSourceDialog(
     var browserUrl by remember { mutableStateOf("https://example.com") }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try {
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                val resolver = LocalContext.current.contentResolver
+                resolver.takePersistableUriPermission(uri, flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: SecurityException) {
+                // Some providers do not expose persistable permissions; the current session still works.
+            }
+        }
         selectedUri = uri
     }
 
