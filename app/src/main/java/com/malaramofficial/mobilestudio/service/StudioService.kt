@@ -52,10 +52,11 @@ class StudioService : Service() {
             ACTION_START_LIVE -> {
                 startInForeground(includeMediaProjection = false)
                 val endpoint = intent?.getStringExtra(EXTRA_RTMP_ENDPOINT).orEmpty()
+                val bitrateKbps = intent?.getIntExtra(EXTRA_VIDEO_BITRATE_KBPS, 6000) ?: 6000
                 if (endpoint.isNotBlank()) {
                     try {
                         val app = application as MalaramStudioApplication
-                        app.broadcastController.start(endpoint)
+                        app.broadcastController.start(endpoint, bitrateKbps)
                     } catch (t: Throwable) {
                         appErrorLog(t)
                         stopForegroundService()
@@ -254,6 +255,7 @@ class StudioService : Service() {
         const val ACTION_START_LIVE = "com.malaramofficial.mobilestudio.ACTION_START_LIVE"
         const val ACTION_STOP_LIVE = "com.malaramofficial.mobilestudio.ACTION_STOP_LIVE"
         const val EXTRA_RTMP_ENDPOINT = "extra_rtmp_endpoint"
+        const val EXTRA_VIDEO_BITRATE_KBPS = "extra_video_bitrate_kbps"
         const val ACTION_START_RECORDING = "com.malaramofficial.mobilestudio.ACTION_START_RECORDING"
         const val ACTION_STOP_RECORDING = "com.malaramofficial.mobilestudio.ACTION_STOP_RECORDING"
         const val ACTION_PAUSE_RECORDING = "com.malaramofficial.mobilestudio.ACTION_PAUSE_RECORDING"
