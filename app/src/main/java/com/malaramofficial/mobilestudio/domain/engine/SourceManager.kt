@@ -38,6 +38,13 @@ interface SourceManager {
     suspend fun updateTransform(sceneId: String, sourceId: String, transform: Transform): AppResult<Source>
     suspend fun updateCrop(sceneId: String, sourceId: String, crop: Crop): AppResult<Source>
     suspend fun updateOpacity(sceneId: String, sourceId: String, opacity: Float): AppResult<Source>
+    suspend fun updateSourceSettings(
+        sceneId: String,
+        sourceId: String,
+        transform: Transform,
+        crop: Crop,
+        opacity: Float
+    ): AppResult<Source>
     suspend fun updateChromaKey(sceneId: String, sourceId: String, chromaKey: ChromaKeyConfig?): AppResult<Source>
     suspend fun updateConfig(sceneId: String, sourceId: String, config: SourceConfig): AppResult<Source>
 
