@@ -2,7 +2,6 @@ package com.malaramofficial.mobilestudio.ui
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.malaramofficial.mobilestudio.core.model.AppError
 import com.malaramofficial.mobilestudio.core.model.AppResult
 import com.malaramofficial.mobilestudio.core.permissions.PermissionManager
 import com.malaramofficial.mobilestudio.data.datastore.StudioPreferences
@@ -16,20 +15,20 @@ import com.malaramofficial.mobilestudio.domain.model.scene.Scene
 import com.malaramofficial.mobilestudio.domain.model.scene.Transition
 import com.malaramofficial.mobilestudio.engine.camera.CameraSourceEngine
 import com.malaramofficial.mobilestudio.engine.camera.CameraState
+import com.malaramofficial.mobilestudio.engine.gpu.MediaTextureSourceManager
 import com.malaramofficial.mobilestudio.engine.gpu.StudioRenderPipeline
 import com.malaramofficial.mobilestudio.engine.gpu.VisualTextureSourceManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+@androidx.media3.common.util.UnstableApi
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class CameraLifecycleTest {
