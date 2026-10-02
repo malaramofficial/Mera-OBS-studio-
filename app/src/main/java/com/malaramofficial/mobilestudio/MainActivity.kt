@@ -10,6 +10,8 @@ import com.malaramofficial.mobilestudio.domain.model.scene.SourceType
 import com.malaramofficial.mobilestudio.domain.model.source.SourceConfig
 import com.malaramofficial.mobilestudio.service.StudioService
 import androidx.activity.ComponentActivity
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +27,7 @@ import com.malaramofficial.mobilestudio.ui.theme.MalaramStudioTheme
  * manages camera permissions, and coordinates hardware lifecycle.
  */
 @UnstableApi
+@OptIn(UnstableApi::class)
 class MainActivity : ComponentActivity() {
 
     private val screenCaptureLauncher = registerForActivityResult(
