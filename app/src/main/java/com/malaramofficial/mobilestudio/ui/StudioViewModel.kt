@@ -72,6 +72,9 @@ class StudioViewModel(
     private val _activeError = MutableStateFlow<AppError?>(null)
     val activeError: StateFlow<AppError?> = _activeError.asStateFlow()
 
+    private val _liveBitrateKbps = MutableStateFlow(6000)
+    val liveBitrateKbps: StateFlow<Int> = _liveBitrateKbps.asStateFlow()
+
     val cameraState: StateFlow<CameraState> = cameraSourceEngine.cameraState
 
     private val _audioState = MutableStateFlow(
@@ -210,6 +213,18 @@ class StudioViewModel(
                     IllegalStateException(t.message ?: "Unable to start live stream", t)
                 )
             }
+        }
+    }
+
+    fun setLiveBitrateKbps(bitrateKbps: Int) {
+        val safeBitrate = bitrateKbps.coerceIn(500, 12000)
+        if (!broadcastController.isLive()) return
+        if (broadcastController.setVideoBitrateKbps(safeBitrate)) {
+            _liveBitrateKbps.value = safeBitrate
+        } else {
+            _activeError.value = AppError.Camera.ConfigurationFailed(
+                IllegalStateException("This device encoder could not change bitrate while live.")
+            )
         }
     }
 
