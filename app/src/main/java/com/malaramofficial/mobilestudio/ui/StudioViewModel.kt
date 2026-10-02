@@ -286,10 +286,50 @@ class StudioViewModel(
 
     // --- Scene Operations ---
 
-    fun createScene(name: String) {
+    fun createScene(name: String, sourceType: SourceType = SourceType.CAMERA) {
         viewModelScope.launch {
             val result = sceneManager.createScene(name)
-            handleResult(result)
+            if (result is AppResult.Success) {
+                val sourceName = when (sourceType) {
+                    SourceType.CAMERA -> "Camera"
+                    SourceType.SCREEN -> "Screen"
+                    SourceType.IMAGE -> "Image / Logo"
+                    SourceType.TEXT -> "Text"
+                    SourceType.MEDIA -> "Video / Media"
+                    SourceType.BROWSER -> "Browser"
+                }
+
+                val config = when (sourceType) {
+                    SourceType.CAMERA -> SourceConfig.Camera(
+                        lensFacing = SourceConfig.Camera.LensFacing.BACK
+                    )
+                    SourceType.SCREEN -> SourceConfig.Screen()
+                    SourceType.IMAGE -> SourceConfig.Image()
+                    SourceType.TEXT -> SourceConfig.Text(text = "Live Studio Stream")
+                    SourceType.MEDIA -> SourceConfig.Media()
+                    SourceType.BROWSER -> SourceConfig.Browser()
+                }
+
+                val transform = when (sourceType) {
+                    SourceType.CAMERA,
+                    SourceType.SCREEN -> Transform(x = 0f, y = 0f, width = 1080f, height = 1920f)
+                    SourceType.IMAGE,
+                    SourceType.MEDIA,
+                    SourceType.BROWSER -> Transform(x = 0f, y = 0f, width = 1080f, height = 1920f)
+                    SourceType.TEXT -> Transform(x = 90f, y = 820f, width = 900f, height = 180f)
+                }
+
+                val sourceResult = sourceManager.addSource(
+                    sceneId = result.data.id,
+                    name = sourceName,
+                    type = sourceType,
+                    config = config,
+                    transform = transform
+                )
+                handleResult(sourceResult)
+            } else {
+                handleResult(result)
+            }
         }
     }
 
