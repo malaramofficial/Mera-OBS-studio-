@@ -543,18 +543,6 @@ private fun StudioMonitorDeck(
         }
 
         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Empty Canvas",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = StudioTextSecondary
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
