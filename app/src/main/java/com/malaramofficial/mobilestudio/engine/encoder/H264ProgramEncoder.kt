@@ -29,6 +29,9 @@ class H264ProgramEncoder {
 
     private var codec: MediaCodec? = null
     private var inputSurface: Surface? = null
+    // Surface-mode MediaCodec timestamps are based on elapsed boot time.
+    // RTMP needs a stream-relative timeline starting at zero.
+    private var firstPresentationTimeUs: Long = Long.MIN_VALUE
 
     fun start(
         config: Config,
@@ -40,6 +43,7 @@ class H264ProgramEncoder {
         require(config.width > 0 && config.height > 0)
         require(config.fps in 1..120)
         require(config.bitrateKbps > 0)
+        firstPresentationTimeUs = Long.MIN_VALUE
 
         val mediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         val format = MediaFormat.createVideoFormat(
@@ -80,7 +84,7 @@ class H264ProgramEncoder {
                     onFrame(
                         EncodedFrame(
                             data = bytes,
-                            presentationTimeUs = info.presentationTimeUs,
+                            presentationTimeUs = normalizePresentationTimeUs(info.presentationTimeUs),
                             flags = info.flags
                         )
                     )
@@ -107,6 +111,13 @@ class H264ProgramEncoder {
         return inputSurface!!
     }
 
+    private fun normalizePresentationTimeUs(presentationTimeUs: Long): Long {
+        if (firstPresentationTimeUs == Long.MIN_VALUE) {
+            firstPresentationTimeUs = presentationTimeUs
+        }
+        return (presentationTimeUs - firstPresentationTimeUs).coerceAtLeast(0L)
+    }
+
     fun stop() {
         val current = codec ?: return
         try {
@@ -118,6 +129,7 @@ class H264ProgramEncoder {
         } catch (_: Exception) {
         }
         codec = null
+        firstPresentationTimeUs = Long.MIN_VALUE
 
         inputSurface?.release()
         inputSurface = null
