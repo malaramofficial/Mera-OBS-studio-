@@ -79,6 +79,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1729,35 +1730,34 @@ private fun SourceTransformDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text("Position & Dimensions", fontSize = 12.sp, color = StudioCyan)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = posX,
-                        onValueChange = { posX = it },
-                        label = { Text("X") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = posY,
-                        onValueChange = { posY = it },
-                        label = { Text("Y") },
-                        modifier = Modifier.weight(1f)
-                    )
+                Text("Easy Position Controls", fontSize = 13.sp, color = StudioCyan, fontWeight = FontWeight.Bold)
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    FilledTonalButton(onClick = { posY = ((posY.toFloatOrNull() ?: source.transform.y) - 25f).toInt().toString() }) {
+                        Text("▲  ऊपर")
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        FilledTonalButton(onClick = { posX = ((posX.toFloatOrNull() ?: source.transform.x) - 25f).toInt().toString() }) {
+                            Text("◀  बायाँ")
+                        }
+                        Button(onClick = {
+                            val w = width.toFloatOrNull() ?: source.transform.width
+                            val h = height.toFloatOrNull() ?: source.transform.height
+                            posX = ((1080f - w * zoom) / 2f).toInt().toString()
+                            posY = ((1920f - h * zoom) / 2f).toInt().toString()
+                        }) { Text("CENTER") }
+                        FilledTonalButton(onClick = { posX = ((posX.toFloatOrNull() ?: source.transform.x) + 25f).toInt().toString() }) {
+                            Text("दायाँ  ▶")
+                        }
+                    }
+                    FilledTonalButton(onClick = { posY = ((posY.toFloatOrNull() ?: source.transform.y) + 25f).toInt().toString() }) {
+                        Text("▼  नीचे")
+                    }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = width,
-                        onValueChange = { width = it },
-                        label = { Text("Width") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = height,
-                        onValueChange = { height = it },
-                        label = { Text("Height") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                Text(
+                    "Tip: आकार बदलने के लिए सिर्फ Zoom इस्तेमाल करें — Width/Height अलग न करें।",
+                    fontSize = 11.sp,
+                    color = StudioTextSecondary
+                )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
@@ -1858,8 +1858,8 @@ private fun SourceTransformDialog(
                 onClick = {
                     val newX = posX.toFloatOrNull() ?: source.transform.x
                     val newY = posY.toFloatOrNull() ?: source.transform.y
-                    val newW = (width.toFloatOrNull() ?: source.transform.width).coerceAtLeast(10f)
-                    val newH = (height.toFloatOrNull() ?: source.transform.height).coerceAtLeast(10f)
+                    val newW = source.transform.width.coerceAtLeast(10f)
+                    val newH = source.transform.height.coerceAtLeast(10f)
                     val newRot = rotation.toFloatOrNull() ?: source.transform.rotation
 
                     val newCrop = Crop(
