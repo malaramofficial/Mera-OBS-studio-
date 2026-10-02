@@ -17,7 +17,18 @@ class StudioBroadcastController(
     @Synchronized
     fun start(endpoint: String, bitrateKbps: Int = 6000) {
         check(endpoint.isNotBlank()) { "RTMP endpoint is required" }
-        if (_state.value.isBroadcasting) return
+        val currentState = _state.value
+        // Ignore rapid repeated taps while encoder/RTMP startup or shutdown is
+        // already in progress. Retire a failed session before allowing retry.
+        if (
+            currentState is com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Preparing ||
+            currentState is com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Connecting ||
+            currentState.isBroadcasting ||
+            currentState is com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Stopping
+        ) return
+
+        session?.stop()
+        session = null
         _state.value = com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Preparing
         val newSession = ProgramStreamSession(
             renderPipeline = renderPipeline,
