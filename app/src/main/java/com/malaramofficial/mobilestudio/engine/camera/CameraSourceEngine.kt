@@ -55,7 +55,7 @@ class CameraSourceEngine(
         if (
             currentLens == lens &&
             boundInputSurface === inputSurface &&
-            (_cameraState.value == CameraState.Starting || activeCamera != null)
+            (_cameraState.value == CameraState.Starting || _cameraState.value is CameraState.Active)
         ) return
 
         val requestId = ++cameraRequestId
@@ -93,6 +93,8 @@ class CameraSourceEngine(
     ) {
         try {
             provider.unbindAll()
+            activeCamera = null
+            activePreview = null
 
             val selector = when (lens) {
                 LensFacing.FRONT -> CameraSelector.DEFAULT_FRONT_CAMERA
