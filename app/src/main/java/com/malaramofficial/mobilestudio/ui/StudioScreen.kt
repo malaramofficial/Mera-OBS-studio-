@@ -1307,13 +1307,6 @@ private fun RenameSceneDialog(
 private fun AddSourceDialog(
     sceneId: String,
     onDismiss: () -> Unit,
-    onAdd: (String, String, SourceType, Uri?) -> Unit
-) {
-    var sourceName by remember { mutableStateOf("") }
-    var selectedType by remem@Composable
-private fun AddSourceDialog(
-    sceneId: String,
-    onDismiss: () -> Unit,
     onAdd: (String, String, SourceType, com.malaramofficial.mobilestudio.domain.model.source.SourceConfig?) -> Unit
 ) {
     var sourceName by remember { mutableStateOf("") }
@@ -1353,18 +1346,15 @@ private fun AddSourceDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("input_source_name")
                 )
-
                 Text("Select what this layer displays:", fontSize = 12.sp, color = StudioTextSecondary)
 
                 SourceType.entries.forEach { type ->
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                selectedType = type
-                                if (sourceName.isBlank()) sourceName = defaultName(type)
-                                selectedUri = null
-                            },
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            selectedType = type
+                            if (sourceName.isBlank()) sourceName = defaultName(type)
+                            selectedUri = null
+                        },
                         colors = CardDefaults.cardColors(
                             containerColor = if (selectedType == type) StudioCyan.copy(alpha = 0.2f) else StudioSurface
                         ),
@@ -1430,13 +1420,8 @@ private fun AddSourceDialog(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        if (selectedUri != null) Text(
-                            "Image selected — ready to add",
-                            fontSize = 11.sp,
-                            color = StudioCyan
-                        )
+                        if (selectedUri != null) Text("Image selected — ready to add", fontSize = 11.sp, color = StudioCyan)
                     }
-
                     SourceType.MEDIA -> {
                         OutlinedButton(
                             onClick = { picker.launch(arrayOf("video/*")) },
@@ -1451,13 +1436,8 @@ private fun AddSourceDialog(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        if (selectedUri != null) Text(
-                            "Video selected — ready to add",
-                            fontSize = 11.sp,
-                            color = StudioCyan
-                        )
+                        if (selectedUri != null) Text("Video selected — ready to add", fontSize = 11.sp, color = StudioCyan)
                     }
-
                     SourceType.TEXT -> {
                         OutlinedTextField(
                             value = textValue,
@@ -1467,7 +1447,6 @@ private fun AddSourceDialog(
                             minLines = 2
                         )
                     }
-
                     SourceType.BROWSER -> {
                         OutlinedTextField(
                             value = browserUrl,
@@ -1477,7 +1456,6 @@ private fun AddSourceDialog(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-
                     else -> Unit
                 }
             }
@@ -1493,12 +1471,8 @@ private fun AddSourceDialog(
                 onClick = {
                     val name = sourceName.ifBlank { defaultName(selectedType) }
                     val config = when (selectedType) {
-                        SourceType.IMAGE -> selectedUri?.let {
-                            com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Image(uri = it.toString())
-                        }
-                        SourceType.MEDIA -> selectedUri?.let {
-                            com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Media(uri = it.toString())
-                        }
+                        SourceType.IMAGE -> selectedUri?.let { com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Image(uri = it.toString()) }
+                        SourceType.MEDIA -> selectedUri?.let { com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Media(uri = it.toString()) }
                         SourceType.TEXT -> com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Text(text = textValue)
                         SourceType.BROWSER -> com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Browser(url = browserUrl.trim())
                         SourceType.CAMERA, SourceType.SCREEN -> null
@@ -1513,9 +1487,7 @@ private fun AddSourceDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = StudioTextSecondary)
-            }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = StudioTextSecondary) }
         },
         containerColor = StudioSurfaceElevated
     )
