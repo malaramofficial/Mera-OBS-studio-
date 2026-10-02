@@ -1,7 +1,6 @@
 package com.malaramofficial.mobilestudio
 
 import android.Manifest
-import androidx.media3.common.util.UnstableApi
 import android.os.Bundle
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
