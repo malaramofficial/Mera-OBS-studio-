@@ -59,5 +59,14 @@ class StudioBroadcastController(
         _state.value = com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Idle
     }
 
+    /**
+     * Changes video bitrate while the current live session is running.
+     * No RTMP disconnect/reconnect is performed.
+     */
+    @Synchronized
+    fun setVideoBitrateKbps(bitrateKbps: Int): Boolean {
+        return session?.setVideoBitrateKbps(bitrateKbps) == true
+    }
+
     fun isLive(): Boolean = _state.value.isBroadcasting
 }
