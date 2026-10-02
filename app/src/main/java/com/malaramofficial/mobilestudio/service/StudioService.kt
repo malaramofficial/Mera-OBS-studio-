@@ -23,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /**
@@ -37,6 +38,8 @@ class StudioService : Service() {
 
     private val binder = LocalBinder()
     private var screenCaptureController: MediaProjectionCaptureController? = null
+
+    private val livePrefs by lazy { getSharedPreferences("malaram_studio_live_session", Context.MODE_PRIVATE) }
 
     inner class LocalBinder : Binder() {
         fun getService(): StudioService = this@StudioService
@@ -55,6 +58,7 @@ class StudioService : Service() {
                 val endpoint = intent?.getStringExtra(EXTRA_RTMP_ENDPOINT).orEmpty()
                 val bitrateKbps = intent?.getIntExtra(EXTRA_VIDEO_BITRATE_KBPS, 6000) ?: 6000
                 if (endpoint.isNotBlank()) {
+                    livePrefs.edit().putBoolean(KEY_LIVE_ACTIVE, true).putInt(KEY_LIVE_BITRATE, bitrateKbps.coerceIn(500, 12000)).apply()
                     val app = application as MalaramStudioApplication
                     serviceScope.launch {
                         try {
@@ -101,6 +105,7 @@ class StudioService : Service() {
                 }
             }
             ACTION_STOP_LIVE -> {
+                livePrefs.edit().putBoolean(KEY_LIVE_ACTIVE, false).apply()
                 val app = application as MalaramStudioApplication
                 serviceScope.launch {
                     app.broadcastController.stop()
@@ -118,6 +123,25 @@ class StudioService : Service() {
             ACTION_START_SCREEN_CAPTURE -> {
                 startInForeground(includeMediaProjection = true)
                 startScreenCaptureFromIntent(intent)
+            }
+        }
+        if (intent == null && livePrefs.getBoolean(KEY_LIVE_ACTIVE, false)) {
+            startInForeground(includeMediaProjection = false)
+            val app = application as MalaramStudioApplication
+            serviceScope.launch {
+                val key = app.secureCredentialStore.getStreamKey("youtube").trim()
+                if (key.isNotBlank()) {
+                    val config = app.studioPreferences.streamConfigFlow.first()
+                    val endpoint = config.serverUrl.trimEnd('/') + "/" + key
+                    try {
+                        app.broadcastController.start(
+                            endpoint,
+                            livePrefs.getInt(KEY_LIVE_BITRATE, 6000).coerceIn(500, 12000)
+                        )
+                    } catch (t: Throwable) {
+                        appErrorLog(t)
+                    }
+                }
             }
         }
         return START_STICKY
@@ -208,15 +232,17 @@ class StudioService : Service() {
     override fun onDestroy() {
         screenCaptureController?.stop()
         screenCaptureController = null
-        val app = application as? MalaramStudioApplication
         super.onDestroy()
 
-        // Finish codec and transport teardown on the worker dispatcher. Do not
-        // cancel the scope before this cleanup has had a chance to run.
-        serviceScope.launch {
-            app?.broadcastController?.stop()
-            app?.recordingController?.stopRecording()
-            serviceScope.cancel()
+        // An Android lifecycle destruction is not the same as the user pressing
+        // STOP LIVE. START_STICKY can recreate this service in the background.
+        if (!livePrefs.getBoolean(KEY_LIVE_ACTIVE, false)) {
+            val app = application as? MalaramStudioApplication
+            serviceScope.launch {
+                app?.broadcastController?.stop()
+                app?.recordingController?.stopRecording()
+                serviceScope.cancel()
+            }
         }
     }
 
@@ -272,5 +298,7 @@ class StudioService : Service() {
         const val ACTION_STOP_RECORDING = "com.malaramofficial.mobilestudio.ACTION_STOP_RECORDING"
         const val ACTION_PAUSE_RECORDING = "com.malaramofficial.mobilestudio.ACTION_PAUSE_RECORDING"
         const val ACTION_RESUME_RECORDING = "com.malaramofficial.mobilestudio.ACTION_RESUME_RECORDING"
+        private const val KEY_LIVE_ACTIVE = "live_active"
+        private const val KEY_LIVE_BITRATE = "live_bitrate"
     }
 }
