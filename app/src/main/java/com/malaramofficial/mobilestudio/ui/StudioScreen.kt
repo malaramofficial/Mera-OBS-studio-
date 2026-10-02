@@ -88,6 +88,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import android.net.Uri
+import android.graphics.BitmapFactory
+import android.media.ExifInterface
 import android.content.Intent
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -1478,6 +1480,8 @@ private fun AddSourceDialog(
     var sourceName by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(SourceType.CAMERA) }
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedImageWidthPx by remember { mutableIntStateOf(0) }
+    var selectedImageHeightPx by remember { mutableIntStateOf(0) }
     var textValue by remember { mutableStateOf("Live Studio Stream") }
     var browserUrl by remember { mutableStateOf("https://example.com") }
 
@@ -1494,6 +1498,38 @@ private fun AddSourceDialog(
             }
         }
         selectedUri = uri
+        selectedImageWidthPx = 0
+        selectedImageHeightPx = 0
+        if (uri != null) {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            try {
+                context.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, bounds)
+                }
+                var widthPx = bounds.outWidth
+                var heightPx = bounds.outHeight
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        val orientation = ExifInterface(stream).getAttributeInt(
+                            ExifInterface.TAG_ORIENTATION,
+                            ExifInterface.ORIENTATION_NORMAL
+                        )
+                        if (orientation in 5..8) {
+                            val swap = widthPx
+                            widthPx = heightPx
+                            heightPx = swap
+                        }
+                    }
+                } catch (_: Exception) {
+                    // Use the decoded dimensions when the provider has no EXIF metadata.
+                }
+                selectedImageWidthPx = widthPx.coerceAtLeast(0)
+                selectedImageHeightPx = heightPx.coerceAtLeast(0)
+            } catch (_: Exception) {
+                selectedImageWidthPx = 0
+                selectedImageHeightPx = 0
+            }
+        }
     }
 
     fun defaultName(type: SourceType) = when (type) {
@@ -1648,7 +1684,7 @@ private fun AddSourceDialog(
                 onClick = {
                     val name = sourceName.ifBlank { defaultName(selectedType) }
                     val config = when (selectedType) {
-                        SourceType.IMAGE -> selectedUri?.let { com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Image(uri = it.toString()) }
+                        SourceType.IMAGE -> selectedUri?.let { com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Image(uri = it.toString(), intrinsicWidthPx = selectedImageWidthPx, intrinsicHeightPx = selectedImageHeightPx) }
                         SourceType.MEDIA -> selectedUri?.let { com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Media(uri = it.toString()) }
                         SourceType.TEXT -> com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Text(text = textValue)
                         SourceType.BROWSER -> com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Browser(url = browserUrl.trim())
@@ -1691,7 +1727,12 @@ private fun SourceTransformDialog(
     fun applyCanvasPreset(fill: Boolean) {
         val canvasWidth = 1080f
         val canvasHeight = 1920f
-        val aspect = source.transform.aspectRatio.coerceAtLeast(0.01f)
+        val imageConfig = source.config as? com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Image
+        val aspect = if (imageConfig != null && imageConfig.intrinsicWidthPx > 0 && imageConfig.intrinsicHeightPx > 0) {
+            imageConfig.intrinsicWidthPx.toFloat() / imageConfig.intrinsicHeightPx.toFloat()
+        } else {
+            source.transform.aspectRatio
+        }.coerceAtLeast(0.01f)
         val canvasAspect = canvasWidth / canvasHeight
         val newWidth: Float
         val newHeight: Float
@@ -1791,7 +1832,7 @@ private fun SourceTransformDialog(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { applyCanvasPreset(fill = false) }, modifier = Modifier.weight(1f)) {
-                        Text("FIT")
+                        Text("FIT SCREEN")
                     }
                     OutlinedButton(onClick = { applyCanvasPreset(fill = true) }, modifier = Modifier.weight(1f)) {
                         Text("FILL")
@@ -1858,8 +1899,8 @@ private fun SourceTransformDialog(
                 onClick = {
                     val newX = posX.toFloatOrNull() ?: source.transform.x
                     val newY = posY.toFloatOrNull() ?: source.transform.y
-                    val newW = source.transform.width.coerceAtLeast(10f)
-                    val newH = source.transform.height.coerceAtLeast(10f)
+                    val newW = (width.toFloatOrNull() ?: source.transform.width).coerceAtLeast(10f)
+                    val newH = (height.toFloatOrNull() ?: source.transform.height).coerceAtLeast(10f)
                     val newRot = rotation.toFloatOrNull() ?: source.transform.rotation
 
                     val newCrop = Crop(
