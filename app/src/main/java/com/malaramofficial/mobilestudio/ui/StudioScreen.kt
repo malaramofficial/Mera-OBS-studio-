@@ -306,7 +306,7 @@ fun StudioScreen(
             isLive = state.isBroadcastingLive,
             onDismiss = { showLiveQualityDialog = false },
             onApply = { bitrateKbps ->
-                if (state.isBroadcastingLive) viewModel.setLiveBitrateKbps(bitrateKbps)
+                viewModel.setLiveBitrateKbps(bitrateKbps)
                 showLiveQualityDialog = false
             }
         )
