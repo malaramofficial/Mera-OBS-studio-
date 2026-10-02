@@ -248,6 +248,21 @@ class StudioViewModel(
         secureCredentialStore.clearCredentials("youtube")
     }
 
+
+    // --- Media Playback Operations ---
+
+    fun setMediaPlaying(sourceId: String, playing: Boolean) {
+        mediaTextureSourceManager.setPlaying(sourceId, playing)
+    }
+
+    fun seekMedia(sourceId: String, positionMs: Long) {
+        mediaTextureSourceManager.seekTo(sourceId, positionMs)
+    }
+
+    fun mediaPosition(sourceId: String): Long? {
+        return mediaTextureSourceManager.currentPosition(sourceId)
+    }
+
     // --- Local Recording Operations ---
 
     fun startRecording() {
