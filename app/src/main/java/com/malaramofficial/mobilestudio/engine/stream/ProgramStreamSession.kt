@@ -44,7 +44,7 @@ class ProgramStreamSession(
     private var audioFormatReady = false
 
     @Synchronized
-    fun start(endpoint: String, profile: StudioOutputProfile = StudioOutputProfile.VERTICAL_9_16) {
+    fun start(endpoint: String, profile: StudioOutputProfile = StudioOutputProfile.VERTICAL_9_16, bitrateKbps: Int = profile.bitrateKbps) {
         check(!started) { "Program stream session already started" }
         require(endpoint.isNotBlank()) { "RTMP endpoint is required" }
 
@@ -59,7 +59,7 @@ class ProgramStreamSession(
                 width = profile.width,
                 height = profile.height,
                 fps = profile.fps,
-                bitrateKbps = profile.bitrateKbps
+                bitrateKbps = bitrateKbps.coerceIn(500, 12000)
             ),
             onFormat = { format: MediaFormat ->
                 transport.setVideoFormat(format)
