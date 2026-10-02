@@ -461,72 +461,88 @@ private fun StudioMonitorDeck(
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
     ) {
-        Card(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(9f / 16f)
-                .testTag("program_canvas"),
-            colors = CardDefaults.cardColors(containerColor = Color.Black),
-            shape = RoundedCornerShape(8.dp),
-            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(StudioRed))
+                .height(280.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Real OpenGL Hardware Compositor SurfaceView
-                StudioGlMonitorView(
-                    renderPipeline = renderPipeline,
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                // Live Program Badge
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(8.dp)
-                        .background(StudioRed, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "PROGRAM (LIVE)",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+            // Preserve the vertical program aspect ratio without letting the
+            // preview consume almost the entire phone screen.
+            Card(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .aspectRatio(9f / 16f)
+                    .testTag("program_canvas"),
+                colors = CardDefaults.cardColors(containerColor = Color.Black),
+                shape = RoundedCornerShape(8.dp),
+                border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(StudioRed))
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    StudioGlMonitorView(
+                        renderPipeline = renderPipeline,
+                        modifier = Modifier.fillMaxSize()
                     )
-                }
 
-                // Switch Camera Lens Button (shown when camera is active)
-                if (cameraState.isActive) {
-                    IconButton(
-                        onClick = onSwitchCamera,
+                    Row(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .background(StudioSurface.copy(alpha = 0.75f), CircleShape)
-                            .size(36.dp)
-                            .testTag("btn_switch_camera")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FlipCameraAndroid,
-                            contentDescription = "Switch Camera Lens",
-                            tint = StudioCyan,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-
-                // Scene Name Overlay (only if empty or unobtrusive)
-                if (programScene == null || programScene.sources.isEmpty()) {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .align(Alignment.TopStart)
+                            .padding(8.dp)
+                            .background(StudioRed, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = programScene?.name ?: "No Program Scene",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = StudioTextPrimary
+                            text = "PROGRAM (LIVE)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+
+                    if (cameraState.isActive) {
+                        IconButton(
+                            onClick = onSwitchCamera,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(6.dp)
+                                .background(StudioSurface.copy(alpha = 0.75f), CircleShape)
+                                .size(36.dp)
+                                .testTag("btn_switch_camera")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FlipCameraAndroid,
+                                contentDescription = "Switch Camera Lens",
+                                tint = StudioCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    if (programScene == null || programScene.sources.isEmpty()) {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = programScene?.name ?: "No Program Scene",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = StudioTextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Empty Canvas",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = StudioTextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Empty Canvas",
                             style = MaterialTheme.typography.bodySmall,
