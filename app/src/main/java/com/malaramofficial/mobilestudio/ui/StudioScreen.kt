@@ -1192,6 +1192,86 @@ private fun StudioBottomControlDeck(
 }
 
 @Composable
+private fun FilterChipLike(label: String, selected: Boolean, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.height(36.dp),
+        border = BorderStroke(1.dp, if (selected) StudioCyan else StudioBorder),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = if (selected) StudioCyan else StudioTextSecondary,
+            containerColor = if (selected) StudioCyan.copy(alpha = 0.12f) else Color.Transparent
+        ),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp)
+    ) {
+        Text(label, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+    }
+}
+
+@Composable
+private fun LiveQualityDialog(
+    currentBitrateKbps: Int,
+    isLive: Boolean,
+    onDismiss: () -> Unit,
+    onApply: (Int) -> Unit
+) {
+    var selected by remember { mutableIntStateOf(currentBitrateKbps) }
+    val presets = listOf(1500, 2500, 4000, 6000, 8000)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isLive) "Adjust Live Quality" else "Stream Quality", color = StudioTextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    if (isLive) "Change bitrate without stopping the RTMP connection. Lower it if the live starts buffering or dropping frames."
+                    else "Choose the starting video bitrate. Resolution stays 1080×1920 at 30 FPS.",
+                    fontSize = 12.sp,
+                    color = StudioTextSecondary
+                )
+                Text(
+                    "VIDEO BITRATE: ${selected} kbps",
+                    color = StudioCyan,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp
+                )
+                presets.chunked(3).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { bitrate ->
+                            FilterChipLike(
+                                label = "${bitrate / 1000f}M",
+                                selected = selected == bitrate,
+                                onClick = { selected = bitrate }
+                            )
+                        }
+                    }
+                }
+                if (isLive) {
+                    Text(
+                        "Tip: 6M → 4M → 2.5M → 1.5M if upload becomes unstable.",
+                        fontSize = 11.sp,
+                        color = StudioAmberWarn
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onApply(selected) },
+                colors = ButtonDefaults.buttonColors(containerColor = StudioCyan)
+            ) {
+                Text(if (isLive) "APPLY NOW" else "USE QUALITY", color = Color.Black)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = StudioTextSecondary)
+            }
+        },
+        containerColor = StudioSurfaceElevated
+    )
+}
+
+@Composable
 private fun LiveStreamKeyDialog(
     savedStreamKey: String,
     onDismiss: () -> Unit,
