@@ -130,8 +130,15 @@ class H264ProgramEncoder {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
                 current.setParameters(android.os.Bundle().apply {
                     putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bitrateKbps * 1000)
-                    putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
                 })
+                try {
+                    current.setParameters(android.os.Bundle().apply {
+                        putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
+                    })
+                } catch (_: Throwable) {
+                    // Some vendor encoders accept bitrate changes but reject an
+                    // immediate sync-frame request. The bitrate change is still valid.
+                }
                 true
             } else {
                 false
