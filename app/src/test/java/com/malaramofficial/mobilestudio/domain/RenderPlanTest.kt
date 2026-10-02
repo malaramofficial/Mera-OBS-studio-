@@ -54,6 +54,32 @@ class RenderPlanTest {
         assertEquals(false, layer2.isVisible)
     }
 
+ 
+    @Test
+    fun visibleScreenAndCameraUseVerticalShortsSplitLayout() {
+        val screen = Source(
+            id = "screen", name = "Gameplay", type = SourceType.SCREEN,
+            transform = Transform(width = 1920f, height = 1080f)
+        )
+        val camera = Source(
+            id = "camera", name = "Face Camera", type = SourceType.CAMERA,
+            transform = Transform(width = 1920f, height = 1080f)
+        )
+        val plan = RenderPlanBuilder.build(
+            Scene(id = "shorts", name = "Shorts Live", sources = listOf(screen, camera))
+        )
+
+        val screenLayer = plan.layers.first { it.sourceId == "screen" }
+        val cameraLayer = plan.layers.first { it.sourceId == "camera" }
+
+        assertEquals(1080f, screenLayer.transform.width, 0.01f)
+        assertEquals(1248f, screenLayer.transform.height, 0.01f)
+        assertEquals(0f, screenLayer.transform.y, 0.01f)
+        assertEquals(1080f, cameraLayer.transform.width, 0.01f)
+        assertEquals(672f, cameraLayer.transform.height, 0.01f)
+        assertEquals(1248f, cameraLayer.transform.y, 0.01f)
+    }
+
     @Test
     fun testRenderPlanAppliesSafeCropClamping() {
         // Create source with crop exceeding width
