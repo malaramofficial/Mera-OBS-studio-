@@ -114,6 +114,7 @@ class GpuCompositor {
     // Quad geometry (2 triangles as triangle strip)
     private val vertexBuffer: FloatBuffer
     private val texCoordBuffer: FloatBuffer
+    private val bitmapTexCoordBuffer: FloatBuffer
 
     private val identityMatrix = FloatArray(16).apply {
         Matrix.setIdentityM(this, 0)
@@ -145,6 +146,22 @@ class GpuCompositor {
             .asFloatBuffer()
             .apply {
                 put(texCoords)
+                position(0)
+            }
+
+        // Android Bitmap rows start at the top, while the GL quad's v=0 edge
+        // is the bottom. Flip bitmap UVs only; SurfaceTexture supplies its own matrix.
+        val bitmapTexCoords = floatArrayOf(
+            0.0f, 1.0f,
+            1.0f, 1.0f,
+            0.0f, 0.0f,
+            1.0f, 0.0f
+        )
+        bitmapTexCoordBuffer = ByteBuffer.allocateDirect(bitmapTexCoords.size * 4)
+            .order(ByteOrder.nativeOrder())
+            .asFloatBuffer()
+            .apply {
+                put(bitmapTexCoords)
                 position(0)
             }
     }
@@ -254,7 +271,7 @@ class GpuCompositor {
         GLES20.glEnableVertexAttribArray(locations.position)
         GLES20.glVertexAttribPointer(locations.position, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer)
         GLES20.glEnableVertexAttribArray(locations.textureCoord)
-        GLES20.glVertexAttribPointer(locations.textureCoord, 2, GLES20.GL_FLOAT, false, 0, texCoordBuffer)
+        GLES20.glVertexAttribPointer(locations.textureCoord, 2, GLES20.GL_FLOAT, false, 0, bitmapTexCoordBuffer)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GLES20.glDisableVertexAttribArray(locations.position)
         GLES20.glDisableVertexAttribArray(locations.textureCoord)
