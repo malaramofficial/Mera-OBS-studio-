@@ -1088,121 +1088,61 @@ private fun StudioBottomControlDeck(
     onResumeRecording: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp),
+        modifier = Modifier.fillMaxWidth().padding(12.dp),
         colors = CardDefaults.cardColors(containerColor = StudioSurfaceElevated),
         border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(StudioBorder)),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            FilledTonalButton(
-                onClick = onStartScreenShare,
-                modifier = Modifier.height(48.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(containerColor = StudioSurface, contentColor = StudioCyan),
-                border = BorderStroke(1.dp, StudioCyan),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ScreenShare, contentDescription = "Screen Share", modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("SCREEN", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Text("STUDIO CONTROLS", color = StudioTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = onStartScreenShare, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = StudioSurface, contentColor = StudioCyan), border = BorderStroke(1.dp, StudioCyan)) {
+                    Icon(Icons.AutoMirrored.Filled.ScreenShare, contentDescription = "Screen Share")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("SCREEN", fontWeight = FontWeight.Bold)
+                }
+                Button(onClick = onCut, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = StudioRed)) {
+                    Text("CUT", fontWeight = FontWeight.Bold)
+                }
+                FilledTonalButton(onClick = onTransition, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = StudioSurface, contentColor = StudioCyan), border = BorderStroke(1.dp, StudioCyan)) {
+                    Text("TRANSITION", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                }
             }
 
-            Button(
-                onClick = onCut,
-                modifier = Modifier
-                    .weight(1.1f)
-                    .height(48.dp)
-                    .testTag("action_cut"),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = StudioRed,
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    text = "CUT",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
+            Text("RECORDING", color = StudioTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onRecord, enabled = !isRecording, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = StudioGreenLive, contentColor = Color.Black)) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = "Start Recording")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("START", fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(onClick = onPauseRecording, enabled = isRecording, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, StudioCyan), colors = ButtonDefaults.outlinedButtonColors(contentColor = StudioCyan)) {
+                    Icon(Icons.Default.Pause, contentDescription = "Pause Recording")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("PAUSE", fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(onClick = onStopRecording, enabled = isRecording, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, StudioRed), colors = ButtonDefaults.outlinedButtonColors(contentColor = StudioRed)) {
+                    Icon(Icons.Default.Stop, contentDescription = "End Recording")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("END", fontWeight = FontWeight.Bold)
+                }
             }
 
-            FilledTonalButton(
-                onClick = onTransition,
-                modifier = Modifier
-                    .weight(1.1f)
-                    .height(48.dp)
-                    .testTag("action_transition"),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = StudioSurface,
-                    contentColor = StudioCyan
-                ),
-                border = BorderStroke(1.dp, StudioCyan),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    text = "TRANSITION",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 11.sp
-                )
-            }
-
-            OutlinedButton(
-                onClick = if (isRecording) onStopRecording else onRecord,
-                modifier = Modifier
-                    .weight(0.9f)
-                    .height(48.dp)
-                    .testTag("action_record"),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = if (isRecording) StudioRed else StudioCyan
-                ),
-                border = BorderStroke(1.dp, if (isRecording) StudioRed else StudioCyan),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FiberManualRecord,
-                    contentDescription = null,
-                    tint = if (isRecording) StudioRed else StudioCyan,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = if (isRecording) "STOP" else "REC",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
-            }
-
-            OutlinedButton(
-                onClick = if (isLive) onStopLive else onLive,
-                modifier = Modifier
-                    .weight(0.9f)
-                    .height(48.dp)
-                    .testTag("action_live"),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = if (isLive) StudioRed else StudioCyan
-                ),
-                border = BorderStroke(1.dp, if (isLive) StudioRed else StudioCyan),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Radio,
-                    contentDescription = null,
-                    tint = if (isLive) StudioRed else StudioCyan,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = if (isLive) "STOP" else "LIVE",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
+            Text("LIVE STREAM", color = StudioTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onLive, enabled = !isLive, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = StudioGreenLive, contentColor = Color.Black)) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = "Start Live")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("START LIVE", fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(onClick = onStopLive, enabled = isLive, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, StudioRed), colors = ButtonDefaults.outlinedButtonColors(contentColor = StudioRed)) {
+                    Icon(Icons.Default.Stop, contentDescription = "End Live")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("END LIVE", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
