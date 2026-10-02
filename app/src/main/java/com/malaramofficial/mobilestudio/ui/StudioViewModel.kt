@@ -221,6 +221,12 @@ class StudioViewModel(
         )
     }
 
+    fun getSavedStreamKey(): String = secureCredentialStore.getStreamKey("youtube")
+
+    fun clearSavedStreamKey() {
+        secureCredentialStore.clearCredentials("youtube")
+    }
+
     // --- Local Recording Operations ---
 
     fun startRecording() {
