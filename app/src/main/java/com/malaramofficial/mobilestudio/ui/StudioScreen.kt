@@ -320,10 +320,7 @@ fun StudioScreen(
         AddSourceDialog(
             sceneId = state.previewScene!!.id,
             onDismiss = { showAddSourceDialog = false },
-            onAdd = { sceneId, name, type, mediaUri ->
-                val config = if (type == SourceType.MEDIA && mediaUri != null) {
-                    com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Media(uri = mediaUri.toString())
-                } else null
+            onAdd = { sceneId, name, type, config ->
                 viewModel.addSource(sceneId = sceneId, name = name, type = type, config = config)
                 showAddSourceDialog = false
             }
@@ -1313,59 +1310,217 @@ private fun AddSourceDialog(
     onAdd: (String, String, SourceType, Uri?) -> Unit
 ) {
     var sourceName by remember { mutableStateOf("") }
+    var selectedType by remem@Composable
+private fun AddSourceDialog(
+    sceneId: String,
+    onDismiss: () -> Unit,
+    onAdd: (String, String, SourceType, com.malaramofficial.mobilestudio.domain.model.source.SourceConfig?) -> Unit
+) {
+    var sourceName by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(SourceType.CAMERA) }
-    var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    var textValue by remember { mutableStateOf("Live Studio Stream") }
+    var browserUrl by remember { mutableStateOf("https://example.com") }
 
-    val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        selectedMediaUri = uri
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        selectedUri = uri
+    }
+
+    fun defaultName(type: SourceType) = when (type) {
+        SourceType.CAMERA -> "Camera Layer"
+        SourceType.SCREEN -> "Screen Capture"
+        SourceType.IMAGE -> "Logo / Image"
+        SourceType.TEXT -> "Text Overlay"
+        SourceType.MEDIA -> "Video / Media"
+        SourceType.BROWSER -> "Browser Overlay"
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Layer to Scene", color = StudioTextPrimary) },
         text = {
-            Column(modifier = Modifier.fillMaxWidth().height(460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = sourceName, onValueChange = { sourceName = it }, placeholder = { Text("Layer Name (e.g. Gameplay Clip)") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("input_source_name"))
-                Text("Select Source Type:", fontSize = 12.sp, color = StudioTextSecondary)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(460.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = sourceName,
+                    onValueChange = { sourceName = it },
+                    placeholder = { Text("Layer Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("input_source_name")
+                )
+
+                Text("Select what this layer displays:", fontSize = 12.sp, color = StudioTextSecondary)
+
                 SourceType.entries.forEach { type ->
-                    Card(modifier = Modifier.fillMaxWidth().clickable {
-                        selectedType = type
-                        if (sourceName.isBlank()) sourceName = when (type) {
-                            SourceType.CAMERA -> "Camera Layer"
-                            SourceType.SCREEN -> "Screen Capture"
-                            SourceType.IMAGE -> "Logo / Image"
-                            SourceType.TEXT -> "Text Overlay"
-                            SourceType.MEDIA -> "Video / Media"
-                            SourceType.BROWSER -> "Web Alert Overlay"
-                        }
-                        if (type != SourceType.MEDIA) selectedMediaUri = null
-                    }, colors = CardDefaults.cardColors(containerColor = if (selectedType == type) StudioCyan.copy(alpha = 0.2f) else StudioSurface), border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(if (selectedType == type) StudioCyan else StudioBorder))) {
-                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(getSourceIcon(type), contentDescription = null, tint = if (selectedType == type) StudioCyan else StudioTextSecondary, modifier = Modifier.size(18.dp))
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedType = type
+                                if (sourceName.isBlank()) sourceName = defaultName(type)
+                                selectedUri = null
+                            },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selectedType == type) StudioCyan.copy(alpha = 0.2f) else StudioSurface
+                        ),
+                        border = CardDefaults.outlinedCardBorder().copy(
+                            brush = androidx.compose.ui.graphics.SolidColor(
+                                if (selectedType == type) StudioCyan else StudioBorder
+                            )
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                getSourceIcon(type),
+                                contentDescription = null,
+                                tint = if (selectedType == type) StudioCyan else StudioTextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(type.name, fontWeight = if (selectedType == type) FontWeight.Bold else FontWeight.Normal, color = if (selectedType == type) StudioCyan else StudioTextPrimary)
-                                if (type == SourceType.MEDIA && selectedType == SourceType.MEDIA) Text(if (selectedMediaUri == null) "Video चुनने के लिए Gallery खोलें" else "Media selected", fontSize = 10.sp, color = StudioTextSecondary)
+                                Text(
+                                    text = when (type) {
+                                        SourceType.CAMERA -> "Camera"
+                                        SourceType.SCREEN -> "Screen"
+                                        SourceType.IMAGE -> "Image"
+                                        SourceType.TEXT -> "Text"
+                                        SourceType.MEDIA -> "Video / Media"
+                                        SourceType.BROWSER -> "Browser"
+                                    },
+                                    fontWeight = if (selectedType == type) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedType == type) StudioCyan else StudioTextPrimary
+                                )
+                                Text(
+                                    text = when (type) {
+                                        SourceType.CAMERA -> "Live phone camera"
+                                        SourceType.SCREEN -> "Phone screen capture"
+                                        SourceType.IMAGE -> "Gallery image or logo"
+                                        SourceType.TEXT -> "Rendered text overlay"
+                                        SourceType.MEDIA -> "Video from gallery"
+                                        SourceType.BROWSER -> "Web URL overlay"
+                                    },
+                                    fontSize = 10.sp,
+                                    color = StudioTextSecondary
+                                )
                             }
                         }
                     }
                 }
-                if (selectedType == SourceType.MEDIA) {
-                    OutlinedButton(onClick = { mediaPicker.launch(arrayOf("video/*", "audio/*")) }, modifier = Modifier.fillMaxWidth().testTag("btn_pick_media"), border = BorderStroke(1.dp, StudioCyan)) {
-                        Icon(Icons.Default.Movie, contentDescription = null, tint = StudioCyan)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (selectedMediaUri == null) "CHOOSE MEDIA FROM GALLERY" else "CHANGE MEDIA", color = StudioCyan, fontWeight = FontWeight.Bold)
+
+                when (selectedType) {
+                    SourceType.IMAGE -> {
+                        OutlinedButton(
+                            onClick = { picker.launch(arrayOf("image/*")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            border = BorderStroke(1.dp, StudioCyan)
+                        ) {
+                            Icon(Icons.Default.Image, contentDescription = null, tint = StudioCyan)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                if (selectedUri == null) "CHOOSE IMAGE FROM GALLERY" else "CHANGE IMAGE",
+                                color = StudioCyan,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (selectedUri != null) Text(
+                            "Image selected — ready to add",
+                            fontSize = 11.sp,
+                            color = StudioCyan
+                        )
                     }
-                    if (selectedMediaUri != null) Text("Media selected — ready to add", fontSize = 11.sp, color = StudioCyan)
+
+                    SourceType.MEDIA -> {
+                        OutlinedButton(
+                            onClick = { picker.launch(arrayOf("video/*")) },
+                            modifier = Modifier.fillMaxWidth().testTag("btn_pick_media"),
+                            border = BorderStroke(1.dp, StudioCyan)
+                        ) {
+                            Icon(Icons.Default.Movie, contentDescription = null, tint = StudioCyan)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                if (selectedUri == null) "CHOOSE VIDEO FROM GALLERY" else "CHANGE VIDEO",
+                                color = StudioCyan,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (selectedUri != null) Text(
+                            "Video selected — ready to add",
+                            fontSize = 11.sp,
+                            color = StudioCyan
+                        )
+                    }
+
+                    SourceType.TEXT -> {
+                        OutlinedTextField(
+                            value = textValue,
+                            onValueChange = { textValue = it },
+                            label = { Text("Text to display") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2
+                        )
+                    }
+
+                    SourceType.BROWSER -> {
+                        OutlinedTextField(
+                            value = browserUrl,
+                            onValueChange = { browserUrl = it },
+                            label = { Text("Web URL") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    else -> Unit
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { val finalName = if (sourceName.isNotBlank()) sourceName else selectedType.name; onAdd(sceneId, finalName, selectedType, selectedMediaUri) }, enabled = selectedType != SourceType.MEDIA || selectedMediaUri != null, colors = ButtonDefaults.buttonColors(containerColor = StudioCyan), modifier = Modifier.testTag("btn_confirm_add_source")) { Text("Add Layer", color = Color.Black) }
+            val canAdd = when (selectedType) {
+                SourceType.IMAGE, SourceType.MEDIA -> selectedUri != null
+                SourceType.TEXT -> textValue.isNotBlank()
+                SourceType.BROWSER -> browserUrl.isNotBlank()
+                else -> true
+            }
+            Button(
+                onClick = {
+                    val name = sourceName.ifBlank { defaultName(selectedType) }
+                    val config = when (selectedType) {
+                        SourceType.IMAGE -> selectedUri?.let {
+                            com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Image(uri = it.toString())
+                        }
+                        SourceType.MEDIA -> selectedUri?.let {
+                            com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Media(uri = it.toString())
+                        }
+                        SourceType.TEXT -> com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Text(text = textValue)
+                        SourceType.BROWSER -> com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Browser(url = browserUrl.trim())
+                        SourceType.CAMERA, SourceType.SCREEN -> null
+                    }
+                    onAdd(sceneId, name, selectedType, config)
+                },
+                enabled = canAdd,
+                colors = ButtonDefaults.buttonColors(containerColor = StudioCyan),
+                modifier = Modifier.testTag("btn_confirm_add_source")
+            ) {
+                Text("Add Layer", color = Color.Black)
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = StudioTextSecondary) } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = StudioTextSecondary)
+            }
+        },
         containerColor = StudioSurfaceElevated
     )
 }
+
 @Composable
 private fun SourceTransformDialog(
     source: Source,
