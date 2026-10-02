@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
+import android.graphics.SurfaceTexture
 import com.malaramofficial.mobilestudio.domain.model.render.RenderPlan
 
 /**
@@ -21,6 +22,7 @@ class StudioRenderPipeline {
     private var eglCore: EglCore? = null
     private var displaySurface: EGLSurface? = null
     private val programOutputSurfaces = mutableMapOf<String, EGLSurface>()
+    private val mediaInputs = mutableMapOf<String, MediaInput>()
     private var compositor: GpuCompositor? = null
 
     var cameraInputSurface: CameraInputSurface? = null
@@ -205,6 +207,40 @@ class StudioRenderPipeline {
         }
     }
 
+    /**
+     * Creates an OES Surface for a video/media player. Frames go directly into GL.
+     */
+    fun createMediaInputSurface(
+        sourceId: String,
+        width: Int = 1920,
+        height: Int = 1080,
+        onReady: (Surface) -> Unit
+    ) {
+        require(sourceId.isNotBlank()) { "Media source id is required" }
+        glHandler.post {
+            if (!isInitialized) return@post
+            mediaInputs.remove(sourceId)?.release()
+            val textureId = createOesTexture()
+            val texture = SurfaceTexture(textureId).apply {
+                setDefaultBufferSize(width.coerceAtLeast(1), height.coerceAtLeast(1))
+                setOnFrameAvailableListener({ requestRender() }, glHandler)
+            }
+            val surface = Surface(texture)
+            mediaInputs[sourceId] = MediaInput(textureId, texture, surface)
+            compositor?.bindExternalTexture(sourceId, textureId)
+            onReady(surface)
+            requestRender()
+        }
+    }
+
+    fun releaseMediaInput(sourceId: String) {
+        glHandler.post {
+            compositor?.unbindExternalTexture(sourceId)
+            mediaInputs.remove(sourceId)?.release()
+            requestRender()
+        }
+    }
+
     fun bindExternalTexture(sourceId: String, textureId: Int) {
         glHandler.post {
             compositor?.bindExternalTexture(sourceId, textureId)
@@ -287,6 +323,14 @@ class StudioRenderPipeline {
                 }
             }
 
+            mediaInputs.values.forEach { input ->
+                try {
+                    input.texture.updateTexImage()
+                } catch (_: Exception) {
+                    // No new media frame yet or player is tearing down.
+                }
+            }
+
             fun renderTo(target: EGLSurface, width: Int, height: Int) {
                 core.makeCurrent(target)
                 comp.render(
@@ -316,6 +360,9 @@ class StudioRenderPipeline {
             screenCaptureInputSurface = null
             screenCaptureSourceId = null
 
+            mediaInputs.values.forEach { it.release() }
+            mediaInputs.clear()
+
             compositor?.release()
             compositor = null
 
@@ -332,6 +379,31 @@ class StudioRenderPipeline {
             isInitialized = false
         }
         glThread.quitSafely()
+    }
+
+    private fun createOesTexture(): Int {
+        val ids = IntArray(1)
+        android.opengl.GLES20.glGenTextures(1, ids, 0)
+        val id = ids[0]
+        android.opengl.GLES20.glBindTexture(android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES, id)
+        android.opengl.GLES20.glTexParameteri(android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES, android.opengl.GLES20.GL_TEXTURE_MIN_FILTER, android.opengl.GLES20.GL_LINEAR)
+        android.opengl.GLES20.glTexParameteri(android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES, android.opengl.GLES20.GL_TEXTURE_MAG_FILTER, android.opengl.GLES20.GL_LINEAR)
+        android.opengl.GLES20.glTexParameteri(android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES, android.opengl.GLES20.GL_TEXTURE_WRAP_S, android.opengl.GLES20.GL_CLAMP_TO_EDGE)
+        android.opengl.GLES20.glTexParameteri(android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES, android.opengl.GLES20.GL_TEXTURE_WRAP_T, android.opengl.GLES20.GL_CLAMP_TO_EDGE)
+        android.opengl.GLES20.glBindTexture(android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
+        return id
+    }
+
+    private data class MediaInput(
+        val textureId: Int,
+        val texture: SurfaceTexture,
+        val surface: Surface
+    ) {
+        fun release() {
+            surface.release()
+            texture.release()
+            android.opengl.GLES20.glDeleteTextures(1, intArrayOf(textureId), 0)
+        }
     }
 
     companion object {
