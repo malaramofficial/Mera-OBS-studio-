@@ -12,6 +12,7 @@ import com.malaramofficial.mobilestudio.domain.repository.SceneRepository
 import com.malaramofficial.mobilestudio.engine.camera.CameraSourceEngine
 import com.malaramofficial.mobilestudio.engine.gpu.StudioRenderPipeline
 import com.malaramofficial.mobilestudio.engine.gpu.VisualTextureSourceManager
+import com.malaramofficial.mobilestudio.engine.gpu.MediaTextureSourceManager
 import com.malaramofficial.mobilestudio.engine.scene.SceneManagerImpl
 import com.malaramofficial.mobilestudio.engine.stream.StudioBroadcastController
 import com.malaramofficial.mobilestudio.engine.recording.StudioRecordingController
@@ -54,6 +55,9 @@ class MalaramStudioApplication : Application() {
     lateinit var visualTextureSourceManager: VisualTextureSourceManager
         private set
 
+    lateinit var mediaTextureSourceManager: MediaTextureSourceManager
+        private set
+
     lateinit var broadcastController: StudioBroadcastController
         private set
 
@@ -78,6 +82,7 @@ class MalaramStudioApplication : Application() {
         renderPipeline = StudioRenderPipeline()
         cameraSourceEngine = CameraSourceEngine(this)
         visualTextureSourceManager = VisualTextureSourceManager(this, renderPipeline)
+        mediaTextureSourceManager = MediaTextureSourceManager(this, renderPipeline)
         broadcastController = StudioBroadcastController(renderPipeline)
         recordingController = StudioRecordingController(this, renderPipeline)
         try {
@@ -92,6 +97,7 @@ class MalaramStudioApplication : Application() {
     override fun onTerminate() {
         super.onTerminate()
         cameraSourceEngine.release()
+        mediaTextureSourceManager.release()
         renderPipeline.release()
     }
 
