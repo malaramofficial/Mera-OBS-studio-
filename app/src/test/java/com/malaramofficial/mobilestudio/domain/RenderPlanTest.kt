@@ -56,28 +56,16 @@ class RenderPlanTest {
 
  
     @Test
-    fun visibleScreenAndCameraUseVerticalShortsSplitLayout() {
-        val screen = Source(
-            id = "screen", name = "Gameplay", type = SourceType.SCREEN,
-            transform = Transform(width = 1920f, height = 1080f)
-        )
-        val camera = Source(
-            id = "camera", name = "Face Camera", type = SourceType.CAMERA,
-            transform = Transform(width = 1920f, height = 1080f)
-        )
-        val plan = RenderPlanBuilder.build(
-            Scene(id = "shorts", name = "Shorts Live", sources = listOf(screen, camera))
-        )
+    fun customScreenAndCameraTransformsArePreservedForProgramOutput() {
+        val screenTransform = Transform(x = 30f, y = 80f, width = 900f, height = 700f, rotation = 90f, scaleX = 1.5f, scaleY = 1.5f)
+        val cameraTransform = Transform(x = 650f, y = 1200f, width = 320f, height = 420f, rotation = 12f)
+        val screen = Source(id = "screen", name = "Gameplay", type = SourceType.SCREEN, transform = screenTransform)
+        val camera = Source(id = "camera", name = "Face Camera", type = SourceType.CAMERA, transform = cameraTransform)
+        val plan = RenderPlanBuilder.build(Scene(id = "shorts", name = "Shorts Live", sources = listOf(screen, camera)))
 
-        val screenLayer = plan.layers.first { it.sourceId == "screen" }
-        val cameraLayer = plan.layers.first { it.sourceId == "camera" }
-
-        assertEquals(1080f, screenLayer.transform.width, 0.01f)
-        assertEquals(1248f, screenLayer.transform.height, 0.01f)
-        assertEquals(0f, screenLayer.transform.y, 0.01f)
-        assertEquals(1080f, cameraLayer.transform.width, 0.01f)
-        assertEquals(672f, cameraLayer.transform.height, 0.01f)
-        assertEquals(1248f, cameraLayer.transform.y, 0.01f)
+        assertEquals(screenTransform, plan.layers.first { it.sourceId == "screen" }.transform)
+        assertEquals(cameraTransform, plan.layers.first { it.sourceId == "camera" }.transform)
+        assertTrue(plan.layers.first { it.sourceId == "screen" }.modelMatrix.contentEquals(screenTransform.toMatrix4x4(1080f, 1920f)))
     }
 
     @Test
