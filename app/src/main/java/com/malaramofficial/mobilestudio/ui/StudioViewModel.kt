@@ -197,6 +197,8 @@ class StudioViewModel(
             return
         }
 
+        _liveBitrateKbps.value = bitrateKbps.coerceIn(500, 12000)
+
         viewModelScope.launch {
             val config = preferences.streamConfigFlow.first()
             secureCredentialStore.saveStreamKey("youtube", cleanKey)
