@@ -219,7 +219,10 @@ class StudioViewModel(
 
     fun setLiveBitrateKbps(bitrateKbps: Int) {
         val safeBitrate = bitrateKbps.coerceIn(500, 12000)
-        if (!broadcastController.isLive()) return
+        if (!broadcastController.isLive()) {
+            _liveBitrateKbps.value = safeBitrate
+            return
+        }
         if (broadcastController.setVideoBitrateKbps(safeBitrate)) {
             _liveBitrateKbps.value = safeBitrate
         } else {
