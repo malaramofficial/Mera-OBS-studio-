@@ -23,6 +23,7 @@ class MediaTextureSourceManager(
     private val signatures = ConcurrentHashMap<String, MediaPlaybackSignature>()
     private val players = ConcurrentHashMap<String, ExoPlayer>()
     private val pendingIds = ConcurrentHashMap.newKeySet<String>()
+    private val pendingDesired = ConcurrentHashMap<String, MediaPlaybackSignature>()
     private val syncMutex = Mutex()
 
     suspend fun syncScene(scene: Scene?) = syncMutex.withLock {
@@ -63,26 +64,30 @@ class MediaTextureSourceManager(
         // Do not create a second player while the first one is still being initialized.
         if (pendingIds.contains(source.id) && existingSignature?.uri == desired.uri) {
             signatures[source.id] = desired
+            pendingDesired[source.id] = desired
             return
         }
 
         releaseSource(source.id)
         signatures[source.id] = desired
         pendingIds.add(source.id)
+        pendingDesired[source.id] = desired
 
         renderPipeline.createMediaInputSurface(source.id) { surface ->
             val player = ExoPlayer.Builder(context)
                 .setLooper(android.os.Looper.myLooper() ?: android.os.Looper.getMainLooper())
                 .build()
+            val latest = pendingDesired.remove(source.id) ?: desired
             player.setVideoSurface(surface)
-            player.setMediaItem(MediaItem.fromUri(Uri.parse(desired.uri)))
-            player.repeatMode = if (desired.isLooping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-            player.volume = desired.volume
+            player.setMediaItem(MediaItem.fromUri(Uri.parse(latest.uri)))
+            player.repeatMode = if (latest.isLooping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+            player.volume = latest.volume
             player.prepare()
-            player.playWhenReady = desired.autoPlay
+            player.playWhenReady = latest.autoPlay
             synchronized(this) {
                 pendingIds.remove(source.id)
                 players[source.id] = player
+                signatures[source.id] = latest
             }
         }
     }
@@ -90,6 +95,7 @@ class MediaTextureSourceManager(
     private fun releaseSource(sourceId: String) {
         signatures.remove(sourceId)
         pendingIds.remove(sourceId)
+        pendingDesired.remove(sourceId)
         synchronized(this) {
             players.remove(sourceId)?.let { player ->
                 android.os.Handler(player.applicationLooper).post { player.release() }
