@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -134,6 +136,7 @@ fun StudioScreen(
             .background(StudioObsidian)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
     ) {
         // Top Header
         StudioTopBar(state = state)
@@ -208,8 +211,8 @@ fun StudioScreen(
         // Active Tab Content
         Box(
             modifier = Modifier
-                .weight(1f)
                 .fillMaxWidth()
+                .height(320.dp)
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             when (selectedTabIndex) {
