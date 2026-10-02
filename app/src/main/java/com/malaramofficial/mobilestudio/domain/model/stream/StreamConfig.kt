@@ -28,6 +28,37 @@ data class StreamConfig(
     val isPortrait: Boolean
         get() = height > width
 
+    val isVerticalShorts: Boolean
+        get() = (width == 1080 && height == 1920) || (width == 720 && height == 1280)
+
+    val orientation: StreamOrientation
+        get() = if (isPortrait) StreamOrientation.VERTICAL_SHORTS else StreamOrientation.HORIZONTAL_STANDARD
+
     val isValidForBroadcast: Boolean
         get() = serverUrl.isNotBlank() && streamKey.isNotBlank()
+
+    companion object {
+        const val YOUTUBE_RTMP_URL = "rtmp://a.rtmp.youtube.com/live2"
+
+        val YOUTUBE_SHORTS_1080P = StreamConfig(
+            serverUrl = YOUTUBE_RTMP_URL,
+            width = 1080,
+            height = 1920,
+            videoBitrateKbps = 6000
+        )
+
+        val YOUTUBE_SHORTS_720P = StreamConfig(
+            serverUrl = YOUTUBE_RTMP_URL,
+            width = 720,
+            height = 1280,
+            videoBitrateKbps = 2500
+        )
+
+        val YOUTUBE_LANDSCAPE_1080P = StreamConfig(
+            serverUrl = YOUTUBE_RTMP_URL,
+            width = 1920,
+            height = 1080,
+            videoBitrateKbps = 6000
+        )
+    }
 }
