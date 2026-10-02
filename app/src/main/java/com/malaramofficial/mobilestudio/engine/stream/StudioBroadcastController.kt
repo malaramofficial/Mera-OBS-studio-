@@ -15,7 +15,7 @@ class StudioBroadcastController(
     private var session: ProgramStreamSession? = null
 
     @Synchronized
-    fun start(endpoint: String) {
+    fun start(endpoint: String, bitrateKbps: Int = 6000) {
         check(endpoint.isNotBlank()) { "RTMP endpoint is required" }
         if (_state.value.isBroadcasting) return
         _state.value = com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Preparing
@@ -41,7 +41,7 @@ class StudioBroadcastController(
         )
         session = newSession
         try {
-            newSession.start(endpoint)
+            newSession.start(endpoint, bitrateKbps = bitrateKbps.coerceIn(500, 12000))
         } catch (t: Throwable) {
             session = null
             _state.value = com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Failed(
