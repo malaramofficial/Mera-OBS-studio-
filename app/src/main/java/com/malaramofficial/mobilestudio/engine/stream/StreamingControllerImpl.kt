@@ -91,7 +91,7 @@ class StreamingControllerImpl(
             // Attach encoder surface to GPU render pipeline for direct hardware compositing
             val surface = vEncoder.inputSurface
             if (surface != null) {
-                renderPipeline.setEncoderSurface(surface, config.width, config.height)
+                renderPipeline.attachProgramOutputSurface(surface, config.width, config.height)
             }
 
             // Start Audio Encoder
@@ -165,7 +165,7 @@ class StreamingControllerImpl(
             statsJob?.cancel()
             statsJob = null
 
-            renderPipeline.removeEncoderSurface()
+            renderPipeline.detachProgramOutputSurface()
 
             videoEncoder?.stop()
             videoEncoder = null
