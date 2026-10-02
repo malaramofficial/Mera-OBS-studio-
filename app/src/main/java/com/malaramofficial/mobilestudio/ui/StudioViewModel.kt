@@ -188,7 +188,7 @@ class StudioViewModel(
 
     // --- Live Broadcast Operations ---
 
-    fun startLive(streamKey: String) {
+    fun startLive(streamKey: String, bitrateKbps: Int = _liveBitrateKbps.value) {
         val cleanKey = streamKey.trim()
         if (cleanKey.isBlank()) {
             _activeError.value = AppError.Camera.ConfigurationFailed(
@@ -207,6 +207,7 @@ class StudioViewModel(
                     Intent(appContext, StudioService::class.java)
                         .setAction(StudioService.ACTION_START_LIVE)
                         .putExtra(StudioService.EXTRA_RTMP_ENDPOINT, endpoint)
+                        .putExtra(StudioService.EXTRA_VIDEO_BITRATE_KBPS, bitrateKbps.coerceIn(500, 12000))
                 )
             } catch (t: Throwable) {
                 _activeError.value = AppError.Camera.ConfigurationFailed(
