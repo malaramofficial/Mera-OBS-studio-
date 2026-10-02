@@ -1,6 +1,7 @@
 package com.malaramofficial.mobilestudio
 
 import android.Manifest
+import androidx.media3.common.util.UnstableApi
 import android.os.Bundle
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
@@ -23,6 +24,7 @@ import com.malaramofficial.mobilestudio.ui.theme.MalaramStudioTheme
  * Hosts the studio workspace shell with edge-to-edge Compose rendering,
  * manages camera permissions, and coordinates hardware lifecycle.
  */
+@UnstableApi
 class MainActivity : ComponentActivity() {
 
     private val screenCaptureLauncher = registerForActivityResult(
