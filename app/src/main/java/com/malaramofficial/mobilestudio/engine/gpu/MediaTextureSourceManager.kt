@@ -12,19 +12,26 @@ import com.malaramofficial.mobilestudio.domain.model.scene.SourceType
 import com.malaramofficial.mobilestudio.domain.model.source.SourceConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 
 class MediaTextureSourceManager(
     private val context: Context,
     private val renderPipeline: StudioRenderPipeline
 ) {
-    private val signatures = HashMap<String, String>()
-    private val players = HashMap<String, ExoPlayer>()
+    private val signatures = ConcurrentHashMap<String, String>()
+    private val players = ConcurrentHashMap<String, ExoPlayer>()
+    private val pendingIds = ConcurrentHashMap.newKeySet<String>()
+    private val syncMutex = Mutex()
 
-    suspend fun syncScene(scene: Scene?) = withContext(Dispatchers.IO) {
+    suspend fun syncScene(scene: Scene?) = syncMutex.withLock {
+        withContext(Dispatchers.IO) {
         val mediaSources = scene?.sources?.filter { it.visible && it.type == SourceType.MEDIA } ?: emptyList()
         val activeIds = mediaSources.map { it.id }.toSet()
         (signatures.keys + players.keys).toList().distinct().filterNot { activeIds.contains(it) }.forEach { releaseSource(it) }
-        mediaSources.forEach { syncMedia(it) }
+            mediaSources.forEach { syncMedia(it) }
+        }
     }
 
     @OptIn(UnstableApi::class)
@@ -37,10 +44,13 @@ class MediaTextureSourceManager(
         }
 
         val signature = listOf("media", uri, config.isLooping, config.autoPlay, config.volume).joinToString("|")
-        if (signatures[source.id] == signature && players.containsKey(source.id)) return
+        if (signatures[source.id] == signature &&
+            (players.containsKey(source.id) || pendingIds.contains(source.id))
+        ) return
 
         releaseSource(source.id)
         signatures[source.id] = signature
+        pendingIds.add(source.id)
 
         renderPipeline.createMediaInputSurface(source.id) { surface ->
             val player = ExoPlayer.Builder(context)
@@ -52,12 +62,16 @@ class MediaTextureSourceManager(
             player.volume = config.volume.coerceIn(0f, 1f)
             player.prepare()
             player.playWhenReady = config.autoPlay
-            synchronized(this) { players[source.id] = player }
+            synchronized(this) {
+                pendingIds.remove(source.id)
+                players[source.id] = player
+            }
         }
     }
 
     private fun releaseSource(sourceId: String) {
         signatures.remove(sourceId)
+        pendingIds.remove(sourceId)
         synchronized(this) {
             players.remove(sourceId)?.let { player ->
                 android.os.Handler(player.applicationLooper).post { player.release() }
