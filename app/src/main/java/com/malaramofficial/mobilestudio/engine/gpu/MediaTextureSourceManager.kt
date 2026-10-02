@@ -3,6 +3,8 @@ package com.malaramofficial.mobilestudio.engine.gpu
 import android.content.Context
 import android.net.Uri
 import androidx.media3.common.MediaItem
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.malaramofficial.mobilestudio.domain.model.scene.Scene
@@ -25,6 +27,7 @@ class MediaTextureSourceManager(
         mediaSources.forEach { syncMedia(it) }
     }
 
+    @OptIn(UnstableApi::class)
     private fun syncMedia(source: com.malaramofficial.mobilestudio.domain.model.scene.Source) {
         val config = source.config as? SourceConfig.Media ?: return
         val uri = config.uri.trim()
