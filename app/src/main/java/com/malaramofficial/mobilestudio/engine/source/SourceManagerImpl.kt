@@ -203,6 +203,48 @@ class SourceManagerImpl(
         return updateSourceInternal(sceneId, sourceId) { it.copy(opacity = clamped) }
     }
 
+    /**
+     * Applies transform, crop and opacity in one scene update.
+     * This prevents three separate scene emissions when editing a media source.
+     */
+    override suspend fun updateSourceSettings(
+        sceneId: String,
+        sourceId: String,
+        transform: Transform,
+        crop: Crop,
+        opacity: Float
+    ): AppResult<Source> {
+        val scene = sceneManager.getScene(sceneId)
+            ?: return AppResult.Error(AppError.Scene.SceneNotFound(sceneId))
+
+        val target = scene.findSource(sourceId)
+            ?: return AppResult.Error(AppError.Source.SourceNotFound(sourceId))
+
+        if (!crop.isValidFor(transform.width, transform.height)) {
+            return AppResult.Error(
+                AppError.Source.InvalidCrop(
+                    "Crop dimensions (L:" + crop.left + ", R:" + crop.right +
+                        ", T:" + crop.top + ", B:" + crop.bottom + ") " +
+                        "exceed layer boundaries (" + transform.width + "x" + transform.height + ")"
+                )
+            )
+        }
+
+        val modified = target.copy(
+            transform = transform,
+            crop = crop,
+            opacity = opacity.coerceIn(0f, 1f)
+        )
+        val updateResult = sceneManager.updateScene(scene.withSourceUpdated(modified))
+
+        return when (updateResult) {
+            is AppResult.Success -> AppResult.Success(
+                updateResult.data.findSource(sourceId) ?: modified
+            )
+            is AppResult.Error -> updateResult
+        }
+    }
+
     override suspend fun updateChromaKey(
         sceneId: String,
         sourceId: String,
