@@ -1654,11 +1654,43 @@ private fun SourceTransformDialog(
     var width by remember { mutableStateOf(source.transform.width.toString()) }
     var height by remember { mutableStateOf(source.transform.height.toString()) }
     var rotation by remember { mutableStateOf(source.transform.rotation.toString()) }
+    var zoom by remember { mutableStateOf(source.transform.scaleX.coerceIn(0.25f, 4f)) }
     var opacity by remember { mutableStateOf(source.opacity) }
     var cropLeft by remember { mutableStateOf(source.crop.left.toString()) }
     var cropTop by remember { mutableStateOf(source.crop.top.toString()) }
     var cropRight by remember { mutableStateOf(source.crop.right.toString()) }
     var cropBottom by remember { mutableStateOf(source.crop.bottom.toString()) }
+
+    fun applyCanvasPreset(fill: Boolean) {
+        val canvasWidth = 1080f
+        val canvasHeight = 1920f
+        val aspect = source.transform.aspectRatio.coerceAtLeast(0.01f)
+        val canvasAspect = canvasWidth / canvasHeight
+        val newWidth: Float
+        val newHeight: Float
+        if (fill) {
+            if (aspect > canvasAspect) {
+                newHeight = canvasHeight
+                newWidth = canvasHeight * aspect
+            } else {
+                newWidth = canvasWidth
+                newHeight = canvasWidth / aspect
+            }
+        } else {
+            if (aspect > canvasAspect) {
+                newWidth = canvasWidth
+                newHeight = canvasWidth / aspect
+            } else {
+                newHeight = canvasHeight
+                newWidth = canvasHeight * aspect
+            }
+        }
+        width = newWidth.toInt().toString()
+        height = newHeight.toInt().toString()
+        posX = ((canvasWidth - newWidth) / 2f).toInt().toString()
+        posY = ((canvasHeight - newHeight) / 2f).toInt().toString()
+        zoom = 1f
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1701,13 +1733,58 @@ private fun SourceTransformDialog(
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = rotation,
                         onValueChange = { rotation = it },
-                        label = { Text("Rotation (°)") },
+                        label = { Text("Rotation / Tilt (°)") },
                         modifier = Modifier.weight(1f)
                     )
+                    FilledTonalButton(onClick = {
+                        rotation = Transform.normalizeRotation((rotation.toFloatOrNull() ?: 0f) - 90f).toInt().toString()
+                    }) { Text("−90°") }
+                    FilledTonalButton(onClick = {
+                        rotation = Transform.normalizeRotation((rotation.toFloatOrNull() ?: 0f) + 90f).toInt().toString()
+                    }) { Text("+90°") }
+                }
+
+                Text("Zoom: ${String.format(java.util.Locale.US, "%.2f", zoom)}×", fontSize = 12.sp, color = StudioCyan)
+                Slider(
+                    value = zoom,
+                    onValueChange = { zoom = it },
+                    valueRange = 0.25f..4f,
+                    colors = SliderDefaults.colors(thumbColor = StudioCyan, activeTrackColor = StudioCyan)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { zoom = (zoom - 0.1f).coerceAtLeast(0.25f) }, modifier = Modifier.weight(1f)) {
+                        Text("− Zoom")
+                    }
+                    OutlinedButton(onClick = { zoom = (zoom + 0.1f).coerceAtMost(4f) }, modifier = Modifier.weight(1f)) {
+                        Text("+ Zoom")
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { applyCanvasPreset(fill = false) }, modifier = Modifier.weight(1f)) {
+                        Text("FIT")
+                    }
+                    OutlinedButton(onClick = { applyCanvasPreset(fill = true) }, modifier = Modifier.weight(1f)) {
+                        Text("FILL")
+                    }
+                    OutlinedButton(onClick = {
+                        posX = source.transform.x.toString()
+                        posY = source.transform.y.toString()
+                        width = source.transform.width.toString()
+                        height = source.transform.height.toString()
+                        rotation = source.transform.rotation.toString()
+                        zoom = source.transform.scaleX.coerceIn(0.25f, 4f)
+                        opacity = source.opacity
+                        cropLeft = source.crop.left.toString()
+                        cropTop = source.crop.top.toString()
+                        cropRight = source.crop.right.toString()
+                        cropBottom = source.crop.bottom.toString()
+                    }, modifier = Modifier.weight(1f)) {
+                        Text("RESET")
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -1771,7 +1848,9 @@ private fun SourceTransformDialog(
                         y = newY,
                         width = newW,
                         height = newH,
-                        rotation = newRot
+                        rotation = newRot,
+                        scaleX = zoom,
+                        scaleY = zoom
                     )
 
                     onApply(newTransform, newCrop, opacity)
