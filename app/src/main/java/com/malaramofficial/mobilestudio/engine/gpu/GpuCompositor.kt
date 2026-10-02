@@ -305,7 +305,6 @@ class GpuCompositor {
         // Bind OES Camera Texture
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
-        val locations.texture = GLES20.glGetUniformLocation(shader.programHandle, "locations.texture")
         GLES20.glUniform1i(locations.texture, 0)
 
         // Supply vertex geometry
