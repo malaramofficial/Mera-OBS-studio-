@@ -856,7 +856,7 @@ private fun SourcesListPanel(
                                             )
                                         } else if (source.type == SourceType.SCREEN) {
                                             Text(
-                                                text = "Engine ready (Capture pending Phase 5)",
+                                                text = "Screen capture ready",
                                                 fontSize = 9.sp,
                                                 color = StudioAmberWarn
                                             )
@@ -1388,7 +1388,10 @@ private fun SourceTransformDialog(
         title = { Text("Transform: ${source.name}", color = StudioTextPrimary) },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(460.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text("Position & Dimensions", fontSize = 12.sp, color = StudioCyan)
