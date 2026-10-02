@@ -25,7 +25,9 @@ sealed interface SourceConfig {
     data class Image(
         val uri: String = "",
         val scaleMode: ScaleMode = ScaleMode.FIT,
-        val alpha: Float = 1.0f
+        val alpha: Float = 1.0f,
+        val intrinsicWidthPx: Int = 0,
+        val intrinsicHeightPx: Int = 0
     ) : SourceConfig {
         enum class ScaleMode { FIT, FILL, STRETCH }
     }
