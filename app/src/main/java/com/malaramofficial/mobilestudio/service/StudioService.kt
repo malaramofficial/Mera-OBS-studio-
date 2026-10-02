@@ -23,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Android Foreground Service holding the multimedia broadcast session.
@@ -32,7 +33,7 @@ import kotlinx.coroutines.launch
 class StudioService : Service() {
 
     private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
+    private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
 
     private val binder = LocalBinder()
     private var screenCaptureController: MediaProjectionCaptureController? = null
@@ -54,12 +55,16 @@ class StudioService : Service() {
                 val endpoint = intent?.getStringExtra(EXTRA_RTMP_ENDPOINT).orEmpty()
                 val bitrateKbps = intent?.getIntExtra(EXTRA_VIDEO_BITRATE_KBPS, 6000) ?: 6000
                 if (endpoint.isNotBlank()) {
-                    try {
-                        val app = application as MalaramStudioApplication
-                        app.broadcastController.start(endpoint, bitrateKbps)
-                    } catch (t: Throwable) {
-                        appErrorLog(t)
-                        stopForegroundService()
+                    val app = application as MalaramStudioApplication
+                    serviceScope.launch {
+                        try {
+                            // MediaCodec creation and microphone initialization can
+                            // block; keep them off the main/UI thread.
+                            app.broadcastController.start(endpoint, bitrateKbps)
+                        } catch (t: Throwable) {
+                            appErrorLog(t)
+                            withContext(Dispatchers.Main) { stopForegroundService() }
+                        }
                     }
                 }
             }
@@ -79,7 +84,7 @@ class StudioService : Service() {
                     serviceScope.launch {
                         controller.stopRecording()
                         if (!(application as MalaramStudioApplication).broadcastController.state.value.isBroadcasting) {
-                            stopForegroundService()
+                            withContext(Dispatchers.Main) { stopForegroundService() }
                         }
                     }
                 }
@@ -96,8 +101,11 @@ class StudioService : Service() {
                 }
             }
             ACTION_STOP_LIVE -> {
-                (application as MalaramStudioApplication).broadcastController.stop()
-                stopForegroundService()
+                val app = application as MalaramStudioApplication
+                serviceScope.launch {
+                    app.broadcastController.stop()
+                    withContext(Dispatchers.Main) { stopForegroundService() }
+                }
                 return START_NOT_STICKY
             }
             ACTION_STOP_SERVICE -> {
@@ -200,12 +208,16 @@ class StudioService : Service() {
     override fun onDestroy() {
         screenCaptureController?.stop()
         screenCaptureController = null
-        (application as? MalaramStudioApplication)?.broadcastController?.stop()
-        (application as? MalaramStudioApplication)?.recordingController?.let { controller ->
-            serviceScope.launch { controller.stopRecording() }
-        }
+        val app = application as? MalaramStudioApplication
         super.onDestroy()
-        serviceScope.cancel()
+
+        // Finish codec and transport teardown on the worker dispatcher. Do not
+        // cancel the scope before this cleanup has had a chance to run.
+        serviceScope.launch {
+            app?.broadcastController?.stop()
+            app?.recordingController?.stopRecording()
+            serviceScope.cancel()
+        }
     }
 
     private fun buildStudioNotification(title: String, content: String): Notification {
