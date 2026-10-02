@@ -20,7 +20,7 @@ class MediaTextureSourceManager(
     private val context: Context,
     private val renderPipeline: StudioRenderPipeline
 ) {
-    private val signatures = ConcurrentHashMap<String, String>()
+    private val signatures = ConcurrentHashMap<String, MediaPlaybackSignature>()
     private val players = ConcurrentHashMap<String, ExoPlayer>()
     private val pendingIds = ConcurrentHashMap.newKeySet<String>()
     private val syncMutex = Mutex()
@@ -43,13 +43,31 @@ class MediaTextureSourceManager(
             return
         }
 
-        val signature = listOf("media", uri, config.isLooping, config.autoPlay, config.volume).joinToString("|")
-        if (signatures[source.id] == signature &&
-            (players.containsKey(source.id) || pendingIds.contains(source.id))
-        ) return
+        val desired = MediaPlaybackSignature.from(config)
+        val existingSignature = signatures[source.id]
+        val existingPlayer = players[source.id]
+
+        // Visual scene changes never reach this branch as a player restart trigger.
+        // If the same media URI is already loaded, update playback properties in place.
+        if (existingPlayer != null && existingSignature?.uri == desired.uri) {
+            signatures[source.id] = desired
+            val handler = android.os.Handler(existingPlayer.applicationLooper)
+            handler.post {
+                existingPlayer.repeatMode = if (desired.isLooping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+                existingPlayer.volume = desired.volume
+                existingPlayer.playWhenReady = desired.autoPlay
+            }
+            return
+        }
+
+        // Do not create a second player while the first one is still being initialized.
+        if (pendingIds.contains(source.id) && existingSignature?.uri == desired.uri) {
+            signatures[source.id] = desired
+            return
+        }
 
         releaseSource(source.id)
-        signatures[source.id] = signature
+        signatures[source.id] = desired
         pendingIds.add(source.id)
 
         renderPipeline.createMediaInputSurface(source.id) { surface ->
@@ -57,11 +75,11 @@ class MediaTextureSourceManager(
                 .setLooper(android.os.Looper.myLooper() ?: android.os.Looper.getMainLooper())
                 .build()
             player.setVideoSurface(surface)
-            player.setMediaItem(MediaItem.fromUri(Uri.parse(uri)))
-            player.repeatMode = if (config.isLooping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-            player.volume = config.volume.coerceIn(0f, 1f)
+            player.setMediaItem(MediaItem.fromUri(Uri.parse(desired.uri)))
+            player.repeatMode = if (desired.isLooping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+            player.volume = desired.volume
             player.prepare()
-            player.playWhenReady = config.autoPlay
+            player.playWhenReady = desired.autoPlay
             synchronized(this) {
                 pendingIds.remove(source.id)
                 players[source.id] = player
