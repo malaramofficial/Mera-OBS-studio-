@@ -9,7 +9,11 @@ import java.nio.ByteBuffer
 
 /**
  * Owns the complete Program output path:
- * GPU Program Surface -> H.264 video + microphone AAC -> RTMP.
+ * GPU Program Surface -> H.264 video + optional microphone AAC -> RTMP.
+ *
+ * Video is the primary broadcast path. Microphone audio is attached when the
+ * Android audio source is available, but a microphone permission/device failure
+ * must not prevent the video stream from connecting to the RTMP server.
  */
 class ProgramStreamSession(
     private val renderPipeline: StudioRenderPipeline,
@@ -76,15 +80,21 @@ class ProgramStreamSession(
             height = profile.height
         )
 
+        // Audio is best-effort. The video/RTMP path must not remain stuck in
+        // "Preparing" just because microphone permission is unavailable.
         audio.start(object : StudioMicrophoneAudio.Listener {
             override fun onFormat(format: MediaFormat) {
                 transport.setAudioFormat(format)
                 audioFormatReady = true
+                // Video may already be connected. If not, video readiness is
+                // sufficient to establish the RTMP session.
                 maybeConnect()
             }
 
             override fun onError(reason: String) {
-                listener.onFailed(reason)
+                audioFormatReady = false
+                // Keep the broadcast alive as video-only when microphone audio
+                // cannot be initialized.
             }
 
             override fun onFrame(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
@@ -95,8 +105,7 @@ class ProgramStreamSession(
 
     @Synchronized
     private fun maybeConnect() {
-        if (!started) return
-        if (!videoFormatReady || !audioFormatReady) return
+        if (!started || !videoFormatReady) return
         val url = endpoint ?: return
         if (!transport.isStreaming()) transport.connect(url)
     }
