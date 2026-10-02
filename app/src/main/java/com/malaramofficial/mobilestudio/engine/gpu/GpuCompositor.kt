@@ -22,6 +22,34 @@ class GpuCompositor {
     private var oesShader: GlShader? = null
     private var standardShader: GlShader? = null
 
+    private data class StandardLocations(
+        val mvp: Int,
+        val texMatrix: Int,
+        val opacity: Int,
+        val crop: Int,
+        val texture: Int,
+        val position: Int,
+        val textureCoord: Int
+    )
+
+    private data class OesLocations(
+        val mvp: Int,
+        val texMatrix: Int,
+        val opacity: Int,
+        val crop: Int,
+        val chromaEnabled: Int,
+        val chromaColor: Int,
+        val chromaSimilarity: Int,
+        val chromaSmoothness: Int,
+        val chromaSpill: Int,
+        val texture: Int,
+        val position: Int,
+        val textureCoord: Int
+    )
+
+    private var standardLocations: StandardLocations? = null
+    private var oesLocations: OesLocations? = null
+
     private val externalTextures = mutableMapOf<String, Int>()
     private val standardTextures = mutableMapOf<String, Int>()
     private val ownedStandardTextures = mutableSetOf<Int>()
@@ -122,8 +150,39 @@ class GpuCompositor {
     }
 
     fun initializeGl() {
-        oesShader = GlShader(GlShader.VERTEX_SHADER, GlShader.FRAGMENT_SHADER_OES)
-        standardShader = GlShader(GlShader.VERTEX_SHADER, GlShader.FRAGMENT_SHADER_2D)
+        val oes = GlShader(GlShader.VERTEX_SHADER, GlShader.FRAGMENT_SHADER_OES)
+        val standard = GlShader(GlShader.VERTEX_SHADER, GlShader.FRAGMENT_SHADER_2D)
+        oesShader = oes
+        standardShader = standard
+
+        // Resolve shader handles once. glGet*Location can cross into the driver
+        // and must not run repeatedly for every layer on every frame.
+        val oesProgram = oes.programHandle
+        oesLocations = OesLocations(
+            mvp = GLES20.glGetUniformLocation(oesProgram, "uMVPMatrix"),
+            texMatrix = GLES20.glGetUniformLocation(oesProgram, "uTexMatrix"),
+            opacity = GLES20.glGetUniformLocation(oesProgram, "uOpacity"),
+            crop = GLES20.glGetUniformLocation(oesProgram, "uCrop"),
+            chromaEnabled = GLES20.glGetUniformLocation(oesProgram, "uChromaEnabled"),
+            chromaColor = GLES20.glGetUniformLocation(oesProgram, "uChromaKeyColor"),
+            chromaSimilarity = GLES20.glGetUniformLocation(oesProgram, "uChromaSimilarity"),
+            chromaSmoothness = GLES20.glGetUniformLocation(oesProgram, "uChromaSmoothness"),
+            chromaSpill = GLES20.glGetUniformLocation(oesProgram, "uChromaSpill"),
+            texture = GLES20.glGetUniformLocation(oesProgram, "uTexture"),
+            position = GLES20.glGetAttribLocation(oesProgram, "aPosition"),
+            textureCoord = GLES20.glGetAttribLocation(oesProgram, "aTextureCoord")
+        )
+
+        val standardProgram = standard.programHandle
+        standardLocations = StandardLocations(
+            mvp = GLES20.glGetUniformLocation(standardProgram, "uMVPMatrix"),
+            texMatrix = GLES20.glGetUniformLocation(standardProgram, "uTexMatrix"),
+            opacity = GLES20.glGetUniformLocation(standardProgram, "uOpacity"),
+            crop = GLES20.glGetUniformLocation(standardProgram, "uCrop"),
+            texture = GLES20.glGetUniformLocation(standardProgram, "uTexture"),
+            position = GLES20.glGetAttribLocation(standardProgram, "aPosition"),
+            textureCoord = GLES20.glGetAttribLocation(standardProgram, "aTextureCoord")
+        )
     }
 
     /**
@@ -181,30 +240,24 @@ class GpuCompositor {
 
     private fun draw2dLayer(layer: RenderableLayer, textureId: Int) {
         val shader = standardShader ?: return
+        val locations = standardLocations ?: return
         shader.use()
-        val uMvp = GLES20.glGetUniformLocation(shader.programHandle, "uMVPMatrix")
-        val uTexMatrix = GLES20.glGetUniformLocation(shader.programHandle, "uTexMatrix")
-        val uOpacity = GLES20.glGetUniformLocation(shader.programHandle, "uOpacity")
-        val uCrop = GLES20.glGetUniformLocation(shader.programHandle, "uCrop")
-        val uTexture = GLES20.glGetUniformLocation(shader.programHandle, "uTexture")
-        val aPosition = GLES20.glGetAttribLocation(shader.programHandle, "aPosition")
-        val aTextureCoord = GLES20.glGetAttribLocation(shader.programHandle, "aTextureCoord")
-        GLES20.glUniformMatrix4fv(uMvp, 1, false, layer.modelMatrix, 0)
-        GLES20.glUniformMatrix4fv(uTexMatrix, 1, false, identityMatrix, 0)
-        GLES20.glUniform1f(uOpacity, layer.opacity)
+        GLES20.glUniformMatrix4fv(locations.mvp, 1, false, layer.modelMatrix, 0)
+        GLES20.glUniformMatrix4fv(locations.texMatrix, 1, false, identityMatrix, 0)
+        GLES20.glUniform1f(locations.opacity, layer.opacity)
         val w = layer.transform.width.coerceAtLeast(1f)
         val h = layer.transform.height.coerceAtLeast(1f)
-        GLES20.glUniform4f(uCrop, layer.crop.left / w, layer.crop.top / h, layer.crop.right / w, layer.crop.bottom / h)
+        GLES20.glUniform4f(locations.crop, layer.crop.left / w, layer.crop.top / h, layer.crop.right / w, layer.crop.bottom / h)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
-        GLES20.glUniform1i(uTexture, 0)
-        GLES20.glEnableVertexAttribArray(aPosition)
-        GLES20.glVertexAttribPointer(aPosition, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer)
-        GLES20.glEnableVertexAttribArray(aTextureCoord)
-        GLES20.glVertexAttribPointer(aTextureCoord, 2, GLES20.GL_FLOAT, false, 0, texCoordBuffer)
+        GLES20.glUniform1i(locations.texture, 0)
+        GLES20.glEnableVertexAttribArray(locations.position)
+        GLES20.glVertexAttribPointer(locations.position, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer)
+        GLES20.glEnableVertexAttribArray(locations.textureCoord)
+        GLES20.glVertexAttribPointer(locations.textureCoord, 2, GLES20.GL_FLOAT, false, 0, texCoordBuffer)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        GLES20.glDisableVertexAttribArray(aPosition)
-        GLES20.glDisableVertexAttribArray(aTextureCoord)
+        GLES20.glDisableVertexAttribArray(locations.position)
+        GLES20.glDisableVertexAttribArray(locations.textureCoord)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
 
@@ -214,28 +267,16 @@ class GpuCompositor {
         texMatrix: FloatArray
     ) {
         val shader = oesShader ?: return
+        val locations = oesLocations ?: return
         shader.use()
 
-        val uMVPMatrix = GLES20.glGetUniformLocation(shader.programHandle, "uMVPMatrix")
-        val uTexMatrix = GLES20.glGetUniformLocation(shader.programHandle, "uTexMatrix")
-        val uOpacity = GLES20.glGetUniformLocation(shader.programHandle, "uOpacity")
-        val uCrop = GLES20.glGetUniformLocation(shader.programHandle, "uCrop")
-        val uChromaEnabled = GLES20.glGetUniformLocation(shader.programHandle, "uChromaEnabled")
-        val uChromaKeyColor = GLES20.glGetUniformLocation(shader.programHandle, "uChromaKeyColor")
-        val uChromaSimilarity = GLES20.glGetUniformLocation(shader.programHandle, "uChromaSimilarity")
-        val uChromaSmoothness = GLES20.glGetUniformLocation(shader.programHandle, "uChromaSmoothness")
-        val uChromaSpill = GLES20.glGetUniformLocation(shader.programHandle, "uChromaSpill")
-
-        val aPosition = GLES20.glGetAttribLocation(shader.programHandle, "aPosition")
-        val aTextureCoord = GLES20.glGetAttribLocation(shader.programHandle, "aTextureCoord")
-
         // Pass 4x4 Model-View-Projection matrix from layer
-        GLES20.glUniformMatrix4fv(uMVPMatrix, 1, false, layer.modelMatrix, 0)
+        GLES20.glUniformMatrix4fv(locations.mvp, 1, false, layer.modelMatrix, 0)
         // Pass 4x4 hardware surface texture matrix (handles camera orientation)
-        GLES20.glUniformMatrix4fv(uTexMatrix, 1, false, texMatrix, 0)
+        GLES20.glUniformMatrix4fv(locations.texMatrix, 1, false, texMatrix, 0)
 
         // Pass Layer Opacity
-        GLES20.glUniform1f(uOpacity, layer.opacity)
+        GLES20.glUniform1f(locations.opacity, layer.opacity)
 
         // Pass Normalized Crop (left, top, right, bottom relative to layer size)
         val w = layer.transform.width.coerceAtLeast(1f)
@@ -244,41 +285,41 @@ class GpuCompositor {
         val normCropTop = layer.crop.top / h
         val normCropRight = layer.crop.right / w
         val normCropBottom = layer.crop.bottom / h
-        GLES20.glUniform4f(uCrop, normCropLeft, normCropTop, normCropRight, normCropBottom)
+        GLES20.glUniform4f(locations.crop, normCropLeft, normCropTop, normCropRight, normCropBottom)
 
         // Pass Chroma Key parameters
         val chroma = layer.chromaKey
         if (chroma != null && chroma.enabled) {
-            GLES20.glUniform1i(uChromaEnabled, 1)
+            GLES20.glUniform1i(locations.chromaEnabled, 1)
             val r = ((chroma.keyColorHex shr 16) and 0xFF) / 255f
             val g = ((chroma.keyColorHex shr 8) and 0xFF) / 255f
             val b = (chroma.keyColorHex and 0xFF) / 255f
-            GLES20.glUniform3f(uChromaKeyColor, r, g, b)
-            GLES20.glUniform1f(uChromaSimilarity, chroma.similarity)
-            GLES20.glUniform1f(uChromaSmoothness, chroma.smoothness)
-            GLES20.glUniform1f(uChromaSpill, chroma.spillReduction)
+            GLES20.glUniform3f(locations.chromaColor, r, g, b)
+            GLES20.glUniform1f(locations.chromaSimilarity, chroma.similarity)
+            GLES20.glUniform1f(locations.chromaSmoothness, chroma.smoothness)
+            GLES20.glUniform1f(locations.chromaSpill, chroma.spillReduction)
         } else {
-            GLES20.glUniform1i(uChromaEnabled, 0)
+            GLES20.glUniform1i(locations.chromaEnabled, 0)
         }
 
         // Bind OES Camera Texture
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
-        val uTexture = GLES20.glGetUniformLocation(shader.programHandle, "uTexture")
-        GLES20.glUniform1i(uTexture, 0)
+        val locations.texture = GLES20.glGetUniformLocation(shader.programHandle, "locations.texture")
+        GLES20.glUniform1i(locations.texture, 0)
 
         // Supply vertex geometry
-        GLES20.glEnableVertexAttribArray(aPosition)
-        GLES20.glVertexAttribPointer(aPosition, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer)
+        GLES20.glEnableVertexAttribArray(locations.position)
+        GLES20.glVertexAttribPointer(locations.position, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer)
 
-        GLES20.glEnableVertexAttribArray(aTextureCoord)
-        GLES20.glVertexAttribPointer(aTextureCoord, 2, GLES20.GL_FLOAT, false, 0, texCoordBuffer)
+        GLES20.glEnableVertexAttribArray(locations.textureCoord)
+        GLES20.glVertexAttribPointer(locations.textureCoord, 2, GLES20.GL_FLOAT, false, 0, texCoordBuffer)
 
         // Execute draw
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
-        GLES20.glDisableVertexAttribArray(aPosition)
-        GLES20.glDisableVertexAttribArray(aTextureCoord)
+        GLES20.glDisableVertexAttribArray(locations.position)
+        GLES20.glDisableVertexAttribArray(locations.textureCoord)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
     }
 
@@ -287,6 +328,8 @@ class GpuCompositor {
         oesShader = null
         standardShader?.release()
         standardShader = null
+        oesLocations = null
+        standardLocations = null
         clearTextureBindings()
     }
 }
