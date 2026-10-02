@@ -37,6 +37,7 @@ import com.malaramofficial.mobilestudio.engine.camera.CameraState
 import com.malaramofficial.mobilestudio.engine.camera.LensFacing
 import com.malaramofficial.mobilestudio.engine.gpu.StudioRenderPipeline
 import com.malaramofficial.mobilestudio.engine.gpu.VisualTextureSourceManager
+import com.malaramofficial.mobilestudio.engine.gpu.MediaTextureSourceManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -61,6 +62,7 @@ class StudioViewModel(
     val renderPipeline: StudioRenderPipeline,
     val cameraSourceEngine: CameraSourceEngine,
     val visualTextureSourceManager: VisualTextureSourceManager,
+    val mediaTextureSourceManager: MediaTextureSourceManager,
     private val appContext: Context,
     private val secureCredentialStore: SecureCredentialStore,
     private val broadcastController: StudioBroadcastController,
@@ -124,6 +126,7 @@ class StudioViewModel(
             sceneManager.programScene.collect { scene ->
                 renderPipeline.updateRenderPlan(scene?.let { com.malaramofficial.mobilestudio.domain.model.render.RenderPlanBuilder.build(it) })
                 visualTextureSourceManager.syncScene(scene)
+                mediaTextureSourceManager.syncScene(scene)
             }
         }
     }
@@ -515,6 +518,7 @@ class StudioViewModel(
         private val renderPipeline: StudioRenderPipeline,
         private val cameraSourceEngine: CameraSourceEngine,
         private val visualTextureSourceManager: VisualTextureSourceManager,
+        private val mediaTextureSourceManager: MediaTextureSourceManager,
         private val appContext: Context,
         private val secureCredentialStore: SecureCredentialStore,
         private val broadcastController: StudioBroadcastController,
@@ -530,6 +534,7 @@ class StudioViewModel(
                 renderPipeline = renderPipeline,
                 cameraSourceEngine = cameraSourceEngine,
                 visualTextureSourceManager = visualTextureSourceManager,
+                mediaTextureSourceManager = mediaTextureSourceManager,
                 appContext = appContext,
                 secureCredentialStore = secureCredentialStore,
                 broadcastController = broadcastController,
