@@ -123,6 +123,16 @@ class ProgramStreamSession(
         started = false
     }
 
+    /**
+     * Applies a new video bitrate to the running MediaCodec encoder.
+     * The RTMP connection and GPU output surface remain untouched.
+     */
+    @Synchronized
+    fun setVideoBitrateKbps(bitrateKbps: Int): Boolean {
+        if (!started || bitrateKbps !in 500..12000) return false
+        return encoder.setBitrateKbps(bitrateKbps)
+    }
+
     fun isStarted(): Boolean = started
     fun isStreaming(): Boolean = transport.isStreaming()
     val sentFrames: Long get() = transport.sentVideoFrames
