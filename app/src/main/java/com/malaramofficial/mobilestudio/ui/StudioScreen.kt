@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -80,6 +82,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import android.net.Uri
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
@@ -309,8 +312,11 @@ fun StudioScreen(
         AddSourceDialog(
             sceneId = state.previewScene!!.id,
             onDismiss = { showAddSourceDialog = false },
-            onAdd = { sceneId, name, type ->
-                viewModel.addSource(sceneId = sceneId, name = name, type = type)
+            onAdd = { sceneId, name, type, mediaUri ->
+                val config = if (type == SourceType.MEDIA && mediaUri != null) {
+                    com.malaramofficial.mobilestudio.domain.model.source.SourceConfig.Media(uri = mediaUri.toString())
+                } else null
+                viewModel.addSource(sceneId = sceneId, name = name, type = type, config = config)
                 showAddSourceDialog = false
             }
         )
@@ -1341,96 +1347,62 @@ private fun RenameSceneDialog(
 private fun AddSourceDialog(
     sceneId: String,
     onDismiss: () -> Unit,
-    onAdd: (String, String, SourceType) -> Unit
+    onAdd: (String, String, SourceType, Uri?) -> Unit
 ) {
     var sourceName by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(SourceType.CAMERA) }
+    var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
+
+    val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        selectedMediaUri = uri
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Layer to Scene", color = StudioTextPrimary) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = sourceName,
-                    onValueChange = { sourceName = it },
-                    placeholder = { Text("Layer Name (e.g. Webcam 1)") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("input_source_name")
-                )
-
+            Column(modifier = Modifier.fillMaxWidth().height(460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = sourceName, onValueChange = { sourceName = it }, placeholder = { Text("Layer Name (e.g. Gameplay Clip)") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("input_source_name"))
                 Text("Select Source Type:", fontSize = 12.sp, color = StudioTextSecondary)
-
                 SourceType.entries.forEach { type ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                selectedType = type
-                                if (sourceName.isBlank()) {
-                                    sourceName = when (type) {
-                                        SourceType.CAMERA -> "Camera Layer"
-                                        SourceType.SCREEN -> "Screen Capture"
-                                        SourceType.IMAGE -> "Logo / Image"
-                                        SourceType.TEXT -> "Text Overlay"
-                                        SourceType.MEDIA -> "Video Clip"
-                                        SourceType.BROWSER -> "Web Alert Overlay"
-                                    }
-                                }
-                            },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (selectedType == type) StudioCyan.copy(alpha = 0.2f) else StudioSurface
-                        ),
-                        border = CardDefaults.outlinedCardBorder().copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(
-                                if (selectedType == type) StudioCyan else StudioBorder
-                            )
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = getSourceIcon(type),
-                                contentDescription = null,
-                                tint = if (selectedType == type) StudioCyan else StudioTextSecondary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = type.name,
-                                fontWeight = if (selectedType == type) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedType == type) StudioCyan else StudioTextPrimary
-                            )
+                    Card(modifier = Modifier.fillMaxWidth().clickable {
+                        selectedType = type
+                        if (sourceName.isBlank()) sourceName = when (type) {
+                            SourceType.CAMERA -> "Camera Layer"
+                            SourceType.SCREEN -> "Screen Capture"
+                            SourceType.IMAGE -> "Logo / Image"
+                            SourceType.TEXT -> "Text Overlay"
+                            SourceType.MEDIA -> "Video / Media"
+                            SourceType.BROWSER -> "Web Alert Overlay"
+                        }
+                        if (type != SourceType.MEDIA) selectedMediaUri = null
+                    }, colors = CardDefaults.cardColors(containerColor = if (selectedType == type) StudioCyan.copy(alpha = 0.2f) else StudioSurface), border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(if (selectedType == type) StudioCyan else StudioBorder))) {
+                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(getSourceIcon(type), contentDescription = null, tint = if (selectedType == type) StudioCyan else StudioTextSecondary, modifier = Modifier.size(18.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(type.name, fontWeight = if (selectedType == type) FontWeight.Bold else FontWeight.Normal, color = if (selectedType == type) StudioCyan else StudioTextPrimary)
+                                if (type == SourceType.MEDIA && selectedType == SourceType.MEDIA) Text(if (selectedMediaUri == null) "Video चुनने के लिए Gallery खोलें" else "Media selected", fontSize = 10.sp, color = StudioTextSecondary)
+                            }
                         }
                     }
+                }
+                if (selectedType == SourceType.MEDIA) {
+                    OutlinedButton(onClick = { mediaPicker.launch(arrayOf("video/*", "audio/*")) }, modifier = Modifier.fillMaxWidth().testTag("btn_pick_media"), border = BorderStroke(1.dp, StudioCyan)) {
+                        Icon(Icons.Default.Movie, contentDescription = null, tint = StudioCyan)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (selectedMediaUri == null) "CHOOSE MEDIA FROM GALLERY" else "CHANGE MEDIA", color = StudioCyan, fontWeight = FontWeight.Bold)
+                    }
+                    if (selectedMediaUri != null) Text("Media selected — ready to add", fontSize = 11.sp, color = StudioCyan)
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val finalName = if (sourceName.isNotBlank()) sourceName else selectedType.name
-                    onAdd(sceneId, finalName, selectedType)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = StudioCyan),
-                modifier = Modifier.testTag("btn_confirm_add_source")
-            ) {
-                Text("Add Layer", color = Color.Black)
-            }
+            Button(onClick = { val finalName = if (sourceName.isNotBlank()) sourceName else selectedType.name; onAdd(sceneId, finalName, selectedType, selectedMediaUri) }, enabled = selectedType != SourceType.MEDIA || selectedMediaUri != null, colors = ButtonDefaults.buttonColors(containerColor = StudioCyan), modifier = Modifier.testTag("btn_confirm_add_source")) { Text("Add Layer", color = Color.Black) }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = StudioTextSecondary)
-            }
-        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = StudioTextSecondary) } },
         containerColor = StudioSurfaceElevated
     )
 }
-
 @Composable
 private fun SourceTransformDialog(
     source: Source,
