@@ -118,6 +118,29 @@ class H264ProgramEncoder {
         return (presentationTimeUs - firstPresentationTimeUs).coerceAtLeast(0L)
     }
 
+    /**
+     * Changes the H.264 target bitrate without recreating the encoder surface.
+     * This keeps the existing RTMP session alive while reducing upload pressure.
+     */
+    @Synchronized
+    fun setBitrateKbps(bitrateKbps: Int): Boolean {
+        if (bitrateKbps <= 0) return false
+        val current = codec ?: return false
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+                current.setParameters(android.os.Bundle().apply {
+                    putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bitrateKbps * 1000)
+                    putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
+                })
+                true
+            } else {
+                false
+            }
+        } catch (t: Throwable) {
+            false
+        }
+    }
+
     fun stop() {
         val current = codec ?: return
         try {
