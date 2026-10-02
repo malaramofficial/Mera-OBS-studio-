@@ -287,8 +287,8 @@ fun StudioScreen(
     if (showCreateSceneDialog) {
         CreateSceneDialog(
             onDismiss = { showCreateSceneDialog = false },
-            onConfirm = { name ->
-                viewModel.createScene(name)
+            onConfirm = { name, sourceType ->
+                viewModel.createScene(name, sourceType)
                 showCreateSceneDialog = false
             }
         )
@@ -1249,42 +1249,54 @@ private fun LiveStreamKeyDialog(
 @Composable
 private fun CreateSceneDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String, SourceType) -> Unit
 ) {
     var sceneName by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(SourceType.CAMERA) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Create New Scene", color = StudioTextPrimary) },
         text = {
-            Column {
-                Text("Enter a unique name for this broadcast scene:", fontSize = 13.sp, color = StudioTextSecondary)
-                Spacer(modifier = Modifier.height(8.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth().height(420.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Name the scene and choose what it should display.", fontSize = 13.sp, color = StudioTextSecondary)
                 OutlinedTextField(
                     value = sceneName,
                     onValueChange = { sceneName = it },
-                    placeholder = { Text("e.g. Gameplay + Chat") },
+                    placeholder = { Text("e.g. Gameplay + Facecam") },
                     singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("input_scene_name")
+                    modifier = Modifier.fillMaxWidth().testTag("input_scene_name")
                 )
+                Text("Display / Source Type", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = StudioCyan)
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                    items(SourceType.entries) { type ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { selectedType = type },
+                            colors = CardDefaults.cardColors(containerColor = if (selectedType == type) StudioCyan.copy(alpha = 0.18f) else StudioSurface),
+                            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(if (selectedType == type) StudioCyan else StudioBorder)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Icon(getSourceIcon(type), contentDescription = null, tint = if (selectedType == type) StudioCyan else StudioTextSecondary, modifier = Modifier.size(20.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(type.name, fontWeight = FontWeight.SemiBold, color = if (selectedType == type) StudioCyan else StudioTextPrimary)
+                                    Text("This source will be added to the new scene.", fontSize = 10.sp, color = StudioTextSecondary)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
-            Button(
-                onClick = { if (sceneName.isNotBlank()) onConfirm(sceneName) },
-                colors = ButtonDefaults.buttonColors(containerColor = StudioCyan),
-                modifier = Modifier.testTag("btn_confirm_create_scene")
-            ) {
-                Text("Create", color = Color.Black)
+            Button(onClick = { if (sceneName.isNotBlank()) onConfirm(sceneName.trim(), selectedType) }, enabled = sceneName.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = StudioCyan), modifier = Modifier.testTag("btn_confirm_create_scene")) {
+                Text("Create Scene", color = Color.Black)
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = StudioTextSecondary)
-            }
-        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = StudioTextSecondary) } },
         containerColor = StudioSurfaceElevated
     )
 }
