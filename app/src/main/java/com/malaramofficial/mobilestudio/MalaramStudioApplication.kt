@@ -1,7 +1,6 @@
 package com.malaramofficial.mobilestudio
 
 import android.app.Application
-import androidx.media3.common.util.UnstableApi
 import com.malaramofficial.mobilestudio.core.permissions.PermissionManager
 import com.malaramofficial.mobilestudio.data.datastore.StudioPreferences
 import com.malaramofficial.mobilestudio.data.local.StudioDatabase
@@ -24,7 +23,6 @@ import com.malaramofficial.mobilestudio.engine.source.SourceManagerImpl
  * Application entry point for Malaram Mobile Studio.
  * Initializes persistence singletons and domain engine orchestrators.
  */
-@UnstableApi
 class MalaramStudioApplication : Application() {
 
     lateinit var database: StudioDatabase
