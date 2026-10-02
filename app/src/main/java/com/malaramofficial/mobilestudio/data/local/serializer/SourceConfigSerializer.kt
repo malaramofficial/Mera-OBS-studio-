@@ -14,7 +14,7 @@ object SourceConfigSerializer {
         return when (config) {
             is SourceConfig.Camera -> "CAM|${config.lensFacing.name}|${config.targetWidth}|${config.targetHeight}|${config.sensorOrientation}"
             is SourceConfig.Screen -> "SCREEN|${config.captureWidth}|${config.captureHeight}|${config.captureFps}|${config.captureSystemAudio}"
-            is SourceConfig.Image -> "IMG|${config.scaleMode.name}|${config.alpha}|${config.uri}"
+            is SourceConfig.Image -> "IMG|${config.scaleMode.name}|${config.alpha}|${config.intrinsicWidthPx}|${config.intrinsicHeightPx}|${config.uri}"
             is SourceConfig.Text -> "TXT|${config.fontSizeSp}|${config.textColorHex}|${config.backgroundColorHex}|${config.fontFamilyName}|${config.text}"
             is SourceConfig.Media -> "MEDIA|${config.isLooping}|${config.autoPlay}|${config.volume}|${config.uri}"
             is SourceConfig.Browser -> "BROWSER|${config.renderFps}|${config.customCss}|${config.url}"
@@ -39,11 +39,20 @@ object SourceConfigSerializer {
                     captureFps = parts.getOrElse(3) { "60" }.toInt(),
                     captureSystemAudio = parts.getOrElse(4) { "true" }.toBoolean()
                 )
-                "IMG" -> SourceConfig.Image(
-                    scaleMode = SourceConfig.Image.ScaleMode.valueOf(parts.getOrElse(1) { "FIT" }),
-                    alpha = parts.getOrElse(2) { "1.0" }.toFloat(),
-                    uri = parts.drop(3).joinToString("|")
-                )
+                "IMG" -> {
+                    // Accept the previous IMG|mode|alpha|uri format as well as
+                    // the new format carrying intrinsic dimensions.
+                    val hasDimensions = parts.size >= 6 &&
+                        parts[3].toIntOrNull() != null &&
+                        parts[4].toIntOrNull() != null
+                    SourceConfig.Image(
+                        scaleMode = SourceConfig.Image.ScaleMode.valueOf(parts.getOrElse(1) { "FIT" }),
+                        alpha = parts.getOrElse(2) { "1.0" }.toFloat(),
+                        intrinsicWidthPx = if (hasDimensions) parts[3].toInt() else 0,
+                        intrinsicHeightPx = if (hasDimensions) parts[4].toInt() else 0,
+                        uri = parts.drop(if (hasDimensions) 5 else 3).joinToString("|")
+                    )
+                }
                 "TXT" -> SourceConfig.Text(
                     fontSizeSp = parts.getOrElse(1) { "36" }.toFloat(),
                     textColorHex = parts.getOrElse(2) { "0xFFFFFFFF" }.toLong(),
