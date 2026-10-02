@@ -12,6 +12,7 @@ import com.malaramofficial.mobilestudio.domain.model.scene.SourceType
 import com.malaramofficial.mobilestudio.domain.model.scene.Transform
 import com.malaramofficial.mobilestudio.domain.model.source.SourceConfig
 import java.util.UUID
+import kotlin.math.min
 
 /**
  * Production implementation of [SourceManager] managing visual layers and configuration.
@@ -43,13 +44,36 @@ class SourceManagerImpl(
             SourceType.BROWSER -> SourceConfig.Browser()
         }
 
+        val effectiveTransform = if (
+            type == SourceType.IMAGE &&
+            effectiveConfig is SourceConfig.Image &&
+            effectiveConfig.intrinsicWidthPx > 0 &&
+            effectiveConfig.intrinsicHeightPx > 0
+        ) {
+            val imageWidth = effectiveConfig.intrinsicWidthPx.toFloat()
+            val imageHeight = effectiveConfig.intrinsicHeightPx.toFloat()
+            val fitScale = min(1080f / imageWidth, 1920f / imageHeight)
+            val fittedWidth = imageWidth * fitScale
+            val fittedHeight = imageHeight * fitScale
+            transform.copy(
+                x = (1080f - fittedWidth) / 2f,
+                y = (1920f - fittedHeight) / 2f,
+                width = fittedWidth,
+                height = fittedHeight,
+                scaleX = 1f,
+                scaleY = 1f
+            )
+        } else {
+            transform
+        }
+
         val newSource = Source(
             id = UUID.randomUUID().toString(),
             name = name.trim(),
             type = type,
             visible = true,
             locked = false,
-            transform = transform,
+            transform = effectiveTransform,
             config = effectiveConfig
         )
 
