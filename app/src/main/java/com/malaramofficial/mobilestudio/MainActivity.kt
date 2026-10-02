@@ -87,6 +87,7 @@ class MainActivity : ComponentActivity() {
             renderPipeline = app.renderPipeline,
             cameraSourceEngine = app.cameraSourceEngine,
             visualTextureSourceManager = app.visualTextureSourceManager,
+            mediaTextureSourceManager = app.mediaTextureSourceManager,
             appContext = applicationContext,
             secureCredentialStore = app.secureCredentialStore,
             broadcastController = app.broadcastController,
