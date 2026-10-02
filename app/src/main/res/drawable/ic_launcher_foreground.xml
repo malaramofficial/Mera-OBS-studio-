@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Camera Body -->
+    <path
+        android:fillColor="#E1E2EC"
+        android:pathData="M30,38 L64,38 C67.3,38 70,40.7 70,44 L70,64 C70,67.3 67.3,70 64,70 L30,70 C26.7,70 24,67.3 24,64 L24,44 C24,40.7 26.7,38 30,38 Z" />
+    <!-- Camera Lens / Cone -->
+    <path
+        android:fillColor="#E1E2EC"
+        android:pathData="M72,48 L84,40 L84,68 L72,60 Z" />
+    <!-- Aperture / Studio Record Indicator -->
+    <path
+        android:fillColor="#FF2A55"
+        android:pathData="M47,54m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
+    <!-- Viewfinder / Signal Waves -->
+    <path
+        android:fillColor="#FF2A55"
+        android:pathData="M30,32 L36,32 L36,35 L30,35 Z" />
+</vector>

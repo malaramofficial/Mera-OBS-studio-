@@ -1,0 +1,6 @@
+{
+  "name": "Malaram Mobile Studio",
+  "description": "OBS-style Mobile Live Streaming and Recording Studio for Android with real-time multi-source GPU compositing, audio mixing, and RTMP streaming.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
