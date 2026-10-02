@@ -8,6 +8,7 @@ import android.util.Log
 import android.view.Surface
 import android.graphics.SurfaceTexture
 import com.malaramofficial.mobilestudio.domain.model.render.RenderPlan
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Dedicated OpenGL ES rendering thread and pipeline orchestrator.
@@ -40,6 +41,11 @@ class StudioRenderPipeline {
     private var outputSurfaceHeight: Int = 1920
 
     private var isInitialized = false
+
+    // Camera callbacks can arrive faster than the GL thread can draw. Keep at
+    // most one render task queued and collapse intermediate frame requests.
+    private val renderScheduled = AtomicBoolean(false)
+    private val renderDirty = AtomicBoolean(false)
 
     fun init(onReady: (CameraInputSurface) -> Unit) {
         glHandler.post {
@@ -297,58 +303,80 @@ class StudioRenderPipeline {
      * externally-bound sources must still render.
      */
     fun requestRender() {
+        renderDirty.set(true)
+        if (!renderScheduled.compareAndSet(false, true)) return
+
         glHandler.post {
-            val core = eglCore ?: return@post
-            val comp = compositor ?: return@post
-            val plan = activeRenderPlan ?: return@post
-            val targetSurface = displaySurface
-            val outputSurfaces = programOutputSurfaces.toMap()
-            if (targetSurface == null && outputSurfaces.isEmpty()) return@post
-
-            val camSurface = cameraInputSurface
-            if (camSurface != null) {
-                // Update camera texture with zero CPU copies when available.
-                try {
-                    camSurface.updateTexImage()
-                } catch (_: Exception) {
-                    // Frame may not yet be ready or camera may be tearing down.
-                }
+            try {
+                // Consume the newest available camera/screen/media frame only.
+                renderDirty.set(false)
+                renderFrame()
+            } finally {
+                renderScheduled.set(false)
+                // A request that arrived while drawing is rendered once, not
+                // replayed as a backlog of stale frames.
+                if (renderDirty.get()) requestRender()
             }
-
-            screenCaptureInputSurface?.let {
-                try {
-                    it.updateTexImage()
-                } catch (_: Exception) {
-                    // Frame may not yet be ready or capture may be tearing down.
-                }
-            }
-
-            mediaInputs.values.forEach { input ->
-                try {
-                    input.texture.updateTexImage()
-                } catch (_: Exception) {
-                    // No new media frame yet or player is tearing down.
-                }
-            }
-
-            fun renderTo(target: EGLSurface, width: Int, height: Int) {
-                core.makeCurrent(target)
-                comp.render(
-                    renderPlan = plan,
-                    cameraTextureId = camSurface?.textureId,
-                    cameraTexMatrix = camSurface?.texMatrix,
-                    externalTexMatrices = screenCaptureInputSurface?.let {
-                        screenCaptureSourceId?.let { id -> mapOf(id to it.texMatrix) } ?: emptyMap()
-                    } ?: emptyMap(),
-                    viewportWidth = width,
-                    viewportHeight = height
-                )
-                core.swapBuffers(target)
-            }
-
-            targetSurface?.let { renderTo(it, surfaceWidth, surfaceHeight) }
-            outputSurfaces.values.forEach { renderTo(it, outputSurfaceWidth, outputSurfaceHeight) }
         }
+    }
+
+    private fun renderFrame() {
+        val core = eglCore ?: return
+        val comp = compositor ?: return
+        val plan = activeRenderPlan ?: return
+        val targetSurface = displaySurface
+        if (targetSurface == null && programOutputSurfaces.isEmpty()) return
+
+        val camSurface = cameraInputSurface
+        if (camSurface != null) {
+            try {
+                camSurface.updateTexImage()
+            } catch (_: Exception) {
+                // Frame may not yet be ready or camera may be tearing down.
+            }
+        }
+
+        screenCaptureInputSurface?.let {
+            try {
+                it.updateTexImage()
+            } catch (_: Exception) {
+                // Frame may not yet be ready or capture may be tearing down.
+            }
+        }
+
+        mediaInputs.values.forEach { input ->
+            try {
+                input.texture.updateTexImage()
+            } catch (_: Exception) {
+                // No new media frame yet or player is tearing down.
+            }
+        }
+
+        val screenSourceId = screenCaptureSourceId
+        val screenTextureMatrix = screenCaptureInputSurface?.texMatrix
+        val externalMatrices = if (screenSourceId != null && screenTextureMatrix != null) {
+            mapOf(screenSourceId to screenTextureMatrix)
+        } else {
+            emptyMap()
+        }
+        val cameraTextureId = camSurface?.textureId
+        val cameraTextureMatrix = camSurface?.texMatrix
+
+        fun renderTo(target: EGLSurface, width: Int, height: Int) {
+            core.makeCurrent(target)
+            comp.render(
+                renderPlan = plan,
+                cameraTextureId = cameraTextureId,
+                cameraTexMatrix = cameraTextureMatrix,
+                externalTexMatrices = externalMatrices,
+                viewportWidth = width,
+                viewportHeight = height
+            )
+            core.swapBuffers(target)
+        }
+
+        targetSurface?.let { renderTo(it, surfaceWidth, surfaceHeight) }
+        programOutputSurfaces.values.forEach { renderTo(it, outputSurfaceWidth, outputSurfaceHeight) }
     }
 
     fun release() {
