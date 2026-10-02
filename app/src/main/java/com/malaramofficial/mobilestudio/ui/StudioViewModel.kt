@@ -473,6 +473,36 @@ class StudioViewModel(
         }
     }
 
+    /**
+     * Applies all editor fields in one coroutine and in order.
+     * Running these writes concurrently can make each update read the same
+     * old Scene snapshot; the last save then silently overwrites earlier edits.
+     */
+    fun applySourceSettings(
+        sceneId: String,
+        sourceId: String,
+        transform: Transform,
+        crop: Crop,
+        opacity: Float
+    ) {
+        viewModelScope.launch {
+            val transformResult = sourceManager.updateTransform(sceneId, sourceId, transform)
+            if (transformResult is AppResult.Error) {
+                handleResult(transformResult)
+                return@launch
+            }
+
+            val cropResult = sourceManager.updateCrop(sceneId, sourceId, crop)
+            if (cropResult is AppResult.Error) {
+                handleResult(cropResult)
+                return@launch
+            }
+
+            val opacityResult = sourceManager.updateOpacity(sceneId, sourceId, opacity)
+            handleResult(opacityResult)
+        }
+    }
+
     fun updateTransform(sceneId: String, sourceId: String, transform: Transform) {
         viewModelScope.launch {
             val result = sourceManager.updateTransform(sceneId, sourceId, transform)
