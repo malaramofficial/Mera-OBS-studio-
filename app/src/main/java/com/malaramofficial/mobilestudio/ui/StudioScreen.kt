@@ -272,17 +272,21 @@ fun StudioScreen(
             onStopLive = { viewModel.stopLive() },
             isRecording = state.isRecordingToFile,
             onRecord = { viewModel.startRecording() },
-            onStopRecording = { viewModel.stopRecording() }
+            onStopRecording = { viewModel.stopRecording() },
+            onPauseRecording = { viewModel.pauseRecording() },
+            onResumeRecording = { viewModel.resumeRecording() }
         )
     }
 
     if (showLiveDialog) {
         LiveStreamKeyDialog(
+            savedStreamKey = viewModel.getSavedStreamKey(),
             onDismiss = { showLiveDialog = false },
             onStart = { key ->
                 showLiveDialog = false
                 viewModel.startLive(key)
-            }
+            },
+            onClear = { viewModel.clearSavedStreamKey() }
         )
     }
 
@@ -1078,7 +1082,9 @@ private fun StudioBottomControlDeck(
     onStopLive: () -> Unit,
     isRecording: Boolean,
     onRecord: () -> Unit,
-    onStopRecording: () -> Unit
+    onStopRecording: () -> Unit,
+    onPauseRecording: () -> Unit,
+    onResumeRecording: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -1203,10 +1209,13 @@ private fun StudioBottomControlDeck(
 
 @Composable
 private fun LiveStreamKeyDialog(
+    savedStreamKey: String,
     onDismiss: () -> Unit,
-    onStart: (String) -> Unit
+    onStart: (String) -> Unit,
+    onClear: () -> Unit
 ) {
-    var streamKey by remember { mutableStateOf("") }
+    var streamKey by remember { mutableStateOf(savedStreamKey) }
+    var editing by remember { mutableStateOf(savedStreamKey.isBlank()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1219,7 +1228,7 @@ private fun LiveStreamKeyDialog(
                     color = StudioCyan
                 )
                 Text(
-                    "Paste your YouTube stream key. It is stored locally in secure app storage.",
+                    if (savedStreamKey.isBlank()) "Enter your stream key once. It will be saved securely on this device." else "Saved stream key found. Use it directly or edit it.",
                     fontSize = 12.sp,
                     color = StudioTextSecondary
                 )
@@ -1228,8 +1237,18 @@ private fun LiveStreamKeyDialog(
                     onValueChange = { streamKey = it },
                     label = { Text("YouTube Stream Key") },
                     singleLine = true,
+                    enabled = editing,
+                    visualTransformation = if (editing) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { editing = true }, enabled = !editing && streamKey.isNotBlank()) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit")
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("EDIT")
+                    }
+                    OutlinedButton(onClick = { streamKey = ""; editing = true; onClear() }, enabled = streamKey.isNotBlank()) { Text("CLEAR") }
+                }
             }
         },
         confirmButton = {
@@ -1238,7 +1257,7 @@ private fun LiveStreamKeyDialog(
                 enabled = streamKey.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = StudioCyan)
             ) {
-                Text("GO LIVE", color = Color.Black)
+                Text(if (savedStreamKey.isBlank() || editing) "SAVE & GO LIVE" else "GO LIVE", color = Color.Black)
             }
         },
         dismissButton = {
