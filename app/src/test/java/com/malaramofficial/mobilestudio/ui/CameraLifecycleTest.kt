@@ -89,6 +89,7 @@ class CameraLifecycleTest {
         val pipeline = StudioRenderPipeline()
         val cameraEngine = CameraSourceEngine(context)
         val visualTextureSourceManager = VisualTextureSourceManager(context, pipeline)
+        val mediaTextureSourceManager = MediaTextureSourceManager(context, pipeline)
         viewModel = StudioViewModel(
             sceneManager = MockSceneManager(),
             sourceManager = MockSourceManager(),
@@ -97,6 +98,7 @@ class CameraLifecycleTest {
             renderPipeline = pipeline,
             cameraSourceEngine = cameraEngine,
             visualTextureSourceManager = visualTextureSourceManager,
+            mediaTextureSourceManager = mediaTextureSourceManager,
             appContext = context,
             secureCredentialStore = SecureCredentialStore(context),
             broadcastController = StudioBroadcastController(pipeline),
