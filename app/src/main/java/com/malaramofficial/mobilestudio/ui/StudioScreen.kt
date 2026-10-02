@@ -260,7 +260,9 @@ fun StudioScreen(
                     },
                     onConfigureSource = { sceneId, source ->
                         sourceToConfigure = Pair(sceneId, source)
-                    }
+                    },
+                    onMediaPlay = { sourceId -> viewModel.setMediaPlaying(sourceId, true) },
+                    onMediaPause = { sourceId -> viewModel.setMediaPlaying(sourceId, false) }
                 )
                 2 -> AudioMixerPanel(
                     channels = state.audioState.channels
@@ -762,7 +764,9 @@ private fun SourcesListPanel(
     onReorderSource: (String, String, LayerOrderAction) -> Unit,
     onDuplicateSource: (String, String) -> Unit,
     onDeleteSource: (String, String) -> Unit,
-    onConfigureSource: (String, Source) -> Unit
+    onConfigureSource: (String, Source) -> Unit,
+    onMediaPlay: (String) -> Unit,
+    onMediaPause: (String) -> Unit
 ) {
     if (activeScene == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -987,6 +991,30 @@ private fun SourcesListPanel(
                                     tint = StudioTextSecondary,
                                     modifier = Modifier.size(16.dp)
                                 )
+                            }
+                            if (source.type == SourceType.MEDIA) {
+                                IconButton(
+                                    onClick = { onMediaPlay(source.id) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = "Play Media",
+                                        tint = StudioGreenLive,
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { onMediaPause(source.id) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Pause,
+                                        contentDescription = "Pause Media",
+                                        tint = StudioAmberWarn,
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                }
                             }
                             IconButton(
                                 onClick = { onDeleteSource(activeScene.id, source.id) },
