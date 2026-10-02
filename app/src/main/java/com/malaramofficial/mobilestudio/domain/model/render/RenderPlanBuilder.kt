@@ -12,6 +12,8 @@ import com.malaramofficial.mobilestudio.domain.model.scene.Transform
  */
 object RenderPlanBuilder {
 
+    private const val SCREEN_SPLIT_RATIO = 0.65f
+
     fun build(
         scene: Scene,
         outputProfile: StudioOutputProfile = StudioOutputProfile.VERTICAL_9_16,
@@ -21,14 +23,21 @@ object RenderPlanBuilder {
         val canvasHeight = outputProfile.height
         val screenSource = scene.sortedSources.firstOrNull { it.type == SourceType.SCREEN && it.visible }
         val cameraSource = scene.sortedSources.firstOrNull { it.type == SourceType.CAMERA && it.visible }
-        val autoLayout = screenSource != null &&
-            cameraSource != null &&
-            (screenSource.transform.x < -canvasWidth * 0.25f ||
-                screenSource.transform.width > canvasWidth * 1.5f)
+        // A visible screen + camera pair is the default Shorts-style split layout.
+        // Keep gameplay in the larger upper region and face camera in the lower region.
+        val autoLayout = screenSource != null && cameraSource != null
 
         val autoTransforms = if (autoLayout) {
-            val screenTransform = Transform(x = 0f, y = 0f, width = canvasWidth.toFloat(), height = 1080f)
-            val cameraTransform = Transform(x = 0f, y = 1080f, width = canvasWidth.toFloat(), height = 840f)
+            val screenHeight = canvasHeight * SCREEN_SPLIT_RATIO
+            val cameraHeight = canvasHeight - screenHeight
+            val screenTransform = Transform(
+                x = 0f, y = 0f,
+                width = canvasWidth.toFloat(), height = screenHeight
+            )
+            val cameraTransform = Transform(
+                x = 0f, y = screenHeight,
+                width = canvasWidth.toFloat(), height = cameraHeight
+            )
             mapOf(
                 screenSource!!.id to screenTransform,
                 cameraSource!!.id to cameraTransform
