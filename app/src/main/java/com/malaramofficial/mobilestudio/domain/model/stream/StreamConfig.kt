@@ -7,7 +7,7 @@ package com.malaramofficial.mobilestudio.domain.model.stream
  * discovery, so the default broadcast canvas must stay 9:16.
  */
 data class StreamConfig(
-    val serverUrl: String = "rtmp://a.rtmp.youtube.com/live2",
+    val serverUrl: String = "rtmps://a.rtmps.youtube.com/live2",
     val streamKey: String = "",
     val width: Int = 1080,
     val height: Int = 1920,
@@ -38,7 +38,7 @@ data class StreamConfig(
         get() = serverUrl.isNotBlank() && streamKey.isNotBlank()
 
     companion object {
-        const val YOUTUBE_RTMP_URL = "rtmp://a.rtmp.youtube.com/live2"
+        const val YOUTUBE_RTMP_URL = "rtmps://a.rtmps.youtube.com/live2"
 
         val YOUTUBE_SHORTS_1080P = StreamConfig(
             serverUrl = YOUTUBE_RTMP_URL,
