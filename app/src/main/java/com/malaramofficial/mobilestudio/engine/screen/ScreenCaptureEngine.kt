@@ -78,16 +78,16 @@ class ScreenCaptureEngine(
             windowManager.defaultDisplay.getRealMetrics(metrics)
 
             // When in Vertical Shorts mode, target vertical resolution (e.g. 1080x1920)
-            val captureWidth = if (isVerticalShorts) {
-                minOf(metrics.widthPixels, metrics.heightPixels).coerceAtLeast(720)
-            } else {
-                maxOf(metrics.widthPixels, metrics.heightPixels).coerceAtLeast(1280)
-            }
-            val captureHeight = if (isVerticalShorts) {
-                maxOf(metrics.widthPixels, metrics.heightPixels).coerceAtLeast(1280)
-            } else {
-                minOf(metrics.widthPixels, metrics.heightPixels).coerceAtLeast(720)
-            }
+            // Capture the complete current display aspect ratio. The compositor
+            // is responsible for fitting this source into the vertical output.
+            // Do not force a portrait buffer here: that was the reason landscape
+            // gameplay could arrive already cropped/squeezed.
+            val sourceWidth = metrics.widthPixels.coerceAtLeast(1)
+            val sourceHeight = metrics.heightPixels.coerceAtLeast(1)
+            val maxDimension = 1920f
+            val scale = minOf(1f, maxDimension / maxOf(sourceWidth, sourceHeight).toFloat())
+            val captureWidth = (sourceWidth * scale).toInt().coerceAtLeast(1)
+            val captureHeight = (sourceHeight * scale).toInt().coerceAtLeast(1)
 
             inputSurface.setDefaultBufferSize(captureWidth, captureHeight)
 
