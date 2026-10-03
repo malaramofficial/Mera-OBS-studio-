@@ -2,6 +2,8 @@ package com.malaramofficial.mobilestudio.engine.stream
 
 import android.media.MediaCodec
 import android.media.MediaFormat
+import android.content.Context
+import android.net.Uri
 import com.malaramofficial.mobilestudio.domain.model.render.StudioOutputProfile
 import com.malaramofficial.mobilestudio.engine.encoder.H264ProgramEncoder
 import com.malaramofficial.mobilestudio.engine.gpu.StudioRenderPipeline
@@ -17,6 +19,7 @@ import java.nio.ByteBuffer
  */
 class ProgramStreamSession(
     private val renderPipeline: StudioRenderPipeline,
+    private val context: Context?,
     private val listener: Listener = object : Listener {}
 ) {
 
@@ -36,7 +39,7 @@ class ProgramStreamSession(
         override fun onDisconnected() = listener.onDisconnected()
         override fun onBitrate(bitrate: Long) = listener.onBitrate(bitrate)
     })
-    private val audio = StudioMicrophoneAudio()
+    private var audio: StudioFileAudioSource? = null
 
     private var endpoint: String? = null
     private var started = false
@@ -44,14 +47,18 @@ class ProgramStreamSession(
     private var audioFormatReady = false
 
     @Synchronized
-    fun start(endpoint: String, profile: StudioOutputProfile = StudioOutputProfile.VERTICAL_9_16, bitrateKbps: Int = profile.bitrateKbps) {
+    fun start(
+        endpoint: String,
+        profile: StudioOutputProfile = StudioOutputProfile.VERTICAL_9_16,
+        bitrateKbps: Int = profile.bitrateKbps,
+        audioUri: String? = null
+    ) {
         check(!started) { "Program stream session already started" }
         require(endpoint.isNotBlank()) { "RTMP endpoint is required" }
 
         this.endpoint = endpoint
         started = true
         transport.configure(profile.width, profile.height, profile.fps)
-        transport.configureAudio(sampleRate = 48_000, isStereo = true, bitrateKbps = 128)
         transport.setRetryCount(3)
 
         val surface = encoder.start(
@@ -80,27 +87,38 @@ class ProgramStreamSession(
             height = profile.height
         )
 
-        // Audio is best-effort. The video/RTMP path must not remain stuck in
-        // "Preparing" just because microphone permission is unavailable.
-        audio.start(object : StudioMicrophoneAudio.Listener {
-            override fun onFormat(format: MediaFormat) {
-                transport.setAudioFormat(format)
-                audioFormatReady = true
-                // Video may already be connected. If not, video readiness is
-                // sufficient to establish the RTMP session.
-                maybeConnect()
-            }
+        // The phone microphone is deliberately NOT opened for poster/music
+        // streams. Only the selected local audio file is encoded into the RTMP mix.
+        val selectedAudioUri = audioUri?.takeIf { it.isNotBlank() }
+        if (selectedAudioUri != null) {
+            val appContext = context
+            if (appContext != null) {
+                val fileAudio = StudioFileAudioSource(appContext, Uri.parse(selectedAudioUri))
+                audio = fileAudio
+                fileAudio.start(object : StudioFileAudioSource.Listener {
+                    override fun onFormat(format: MediaFormat) {
+                        val sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                        val channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                        transport.configureAudio(sampleRate, channels > 1, 128)
+                        transport.setAudioFormat(format)
+                        audioFormatReady = true
+                        maybeConnect()
+                    }
 
-            override fun onError(reason: String) {
-                audioFormatReady = false
-                // Keep the broadcast alive as video-only when microphone audio
-                // cannot be initialized.
-            }
+                    override fun onError(reason: String) {
+                        audioFormatReady = false
+                        listener.onFailed("Music audio: $reason")
+                        // Do not tear down the video path if an audio file is unsupported.
+                    }
 
-            override fun onFrame(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
-                transport.sendAudio(buffer, info)
+                    override fun onFrame(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
+                        transport.sendAudio(buffer, info)
+                    }
+                })
+            } else {
+                listener.onFailed("Audio source context is unavailable")
             }
-        })
+        }
     }
 
     @Synchronized
@@ -113,7 +131,8 @@ class ProgramStreamSession(
     @Synchronized
     fun stop() {
         if (!started) return
-        audio.stop()
+        audio?.stop()
+        audio = null
         renderPipeline.detachProgramOutputSurface()
         transport.stop()
         encoder.stop()
