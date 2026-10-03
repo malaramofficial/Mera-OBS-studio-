@@ -77,6 +77,17 @@ class StudioViewModel(
 
     val cameraState: StateFlow<CameraState> = cameraSourceEngine.cameraState
 
+    private val audioPrefs by lazy {
+        appContext.getSharedPreferences("malaram_studio_live_session", Context.MODE_PRIVATE)
+    }
+    private val _audioTrackUri = MutableStateFlow(audioPrefs.getString("audio_track_uri", null))
+    val audioTrackUri: StateFlow<String?> = _audioTrackUri.asStateFlow()
+
+    fun setAudioTrack(uri: String?) {
+        _audioTrackUri.value = uri
+        audioPrefs.edit().putString("audio_track_uri", uri).apply()
+    }
+
     private val _audioState = MutableStateFlow(
         AudioMixerState(
             channels = listOf(
