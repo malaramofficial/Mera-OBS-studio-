@@ -83,7 +83,7 @@ class MalaramStudioApplication : Application() {
         cameraSourceEngine = CameraSourceEngine(this)
         visualTextureSourceManager = VisualTextureSourceManager(this, renderPipeline)
         mediaTextureSourceManager = MediaTextureSourceManager(this, renderPipeline)
-        broadcastController = StudioBroadcastController(renderPipeline)
+        broadcastController = StudioBroadcastController(renderPipeline, this)
         recordingController = StudioRecordingController(this, renderPipeline)
         try {
             renderPipeline.init {
