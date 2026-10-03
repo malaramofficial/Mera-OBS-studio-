@@ -1,11 +1,14 @@
 package com.malaramofficial.mobilestudio.engine.stream
 
+import android.content.Context
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class StudioBroadcastController(
-    private val renderPipeline: com.malaramofficial.mobilestudio.engine.gpu.StudioRenderPipeline
+    private val renderPipeline: com.malaramofficial.mobilestudio.engine.gpu.StudioRenderPipeline,
+    private val context: Context? = null
 ) {
     private val _state = MutableStateFlow<com.malaramofficial.mobilestudio.domain.model.stream.StreamState>(
         com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Idle
@@ -15,7 +18,7 @@ class StudioBroadcastController(
     private var session: ProgramStreamSession? = null
 
     @Synchronized
-    fun start(endpoint: String, bitrateKbps: Int = 6000) {
+    fun start(endpoint: String, bitrateKbps: Int = 6000, audioUri: String? = null) {
         check(endpoint.isNotBlank()) { "RTMP endpoint is required" }
         val currentState = _state.value
         // Ignore rapid repeated taps while encoder/RTMP startup or shutdown is
@@ -32,6 +35,7 @@ class StudioBroadcastController(
         _state.value = com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Preparing
         val newSession = ProgramStreamSession(
             renderPipeline = renderPipeline,
+            context = context,
             listener = object : ProgramStreamSession.Listener {
                 override fun onConnecting(endpoint: String) {
                     _state.value = com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Connecting
@@ -52,7 +56,7 @@ class StudioBroadcastController(
         )
         session = newSession
         try {
-            newSession.start(endpoint, bitrateKbps = bitrateKbps.coerceIn(500, 12000))
+            newSession.start(endpoint, bitrateKbps = bitrateKbps.coerceIn(500, 12000), audioUri = audioUri)
         } catch (t: Throwable) {
             session = null
             _state.value = com.malaramofficial.mobilestudio.domain.model.stream.StreamState.Failed(
