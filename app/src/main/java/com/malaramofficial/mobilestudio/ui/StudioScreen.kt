@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
@@ -144,6 +145,19 @@ fun StudioScreen(
     var showLiveDialog by remember { mutableStateOf(false) }
     var showLiveQualityDialog by remember { mutableStateOf(false) }
     val liveBitrateKbps by viewModel.liveBitrateKbps.collectAsStateWithLifecycle()
+    val audioTrackUri by viewModel.audioTrackUri.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            viewModel.setAudioTrack(uri.toString())
+        }
+    }
 
     Column(
         modifier = modifier
@@ -268,7 +282,9 @@ fun StudioScreen(
                     onMediaPause = { sourceId -> viewModel.setMediaPlaying(sourceId, false) }
                 )
                 2 -> AudioMixerPanel(
-                    channels = state.audioState.channels
+                    audioTrackUri = audioTrackUri,
+                    onChooseAudio = { audioPicker.launch(arrayOf("audio/*")) },
+                    onRemoveAudio = { viewModel.setAudioTrack(null) }
                 )
             }
         }
@@ -1048,80 +1064,91 @@ private fun getSourceIcon(type: SourceType): ImageVector = when (type) {
 }
 
 @Composable
+@Composable
 private fun AudioMixerPanel(
-    channels: List<AudioChannelState>
+    audioTrackUri: String?,
+    onChooseAudio: () -> Unit,
+    onRemoveAudio: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "Master Audio Mixer (Standby - Phase 7)",
-            style = MaterialTheme.typography.titleSmall,
-            color = StudioTextPrimary,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
-
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize()
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = StudioSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(StudioBorder)),
+            shape = RoundedCornerShape(10.dp)
         ) {
-            items(channels, key = { it.id }) { channel ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = StudioSurface),
-                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(StudioBorder)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.MusicNote, contentDescription = null, tint = StudioCyan)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("LIVE MUSIC SOURCE", color = StudioTextPrimary, fontWeight = FontWeight.Bold)
+                }
+                Text(
+                    text = if (audioTrackUri.isNullOrBlank()) {
+                        "कोई ऑडियो फ़ाइल नहीं चुनी गई"
+                    } else {
+                        "ऑडियो फ़ाइल चुनी गई • LIVE में Loop होगी"
+                    },
+                    color = StudioTextSecondary,
+                    fontSize = 12.sp
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onChooseAudio,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = StudioCyan, contentColor = Color.Black)
+                    ) {
+                        Icon(Icons.Default.MusicNote, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (audioTrackUri.isNullOrBlank()) "CHOOSE AUDIO" else "CHANGE AUDIO")
+                    }
+                    if (!audioTrackUri.isNullOrBlank()) {
+                        OutlinedButton(
+                            onClick = onRemoveAudio,
+                            border = BorderStroke(1.dp, StudioRed),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = StudioRed)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = when (channel.type) {
-                                        com.malaramofficial.mobilestudio.domain.model.audio.AudioSourceType.MICROPHONE -> Icons.Default.Mic
-                                        else -> Icons.AutoMirrored.Filled.VolumeUp
-                                    },
-                                    contentDescription = null,
-                                    tint = StudioCyan,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = channel.name,
-                                    fontWeight = FontWeight.Medium,
-                                    color = StudioTextPrimary
-                                )
-                            }
-
-                            Text(
-                                text = "0.0 dBFS",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                color = StudioTextSecondary
-                            )
+                            Text("REMOVE")
                         }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Slider(
-                            value = channel.volumeGain,
-                            onValueChange = {},
-                            valueRange = 0f..2f,
-                            enabled = false,
-                            colors = SliderDefaults.colors(
-                                disabledThumbColor = StudioCyan,
-                                disabledActiveTrackColor = StudioBorder,
-                                disabledInactiveTrackColor = StudioBorder
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
                 }
             }
         }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = StudioSurface),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(StudioBorder)),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("PHONE MICROPHONE", color = StudioTextPrimary, fontWeight = FontWeight.Bold)
+                    Text("LIVE stream में microphone बंद रहेगा", color = StudioTextSecondary, fontSize = 12.sp)
+                }
+                Text(
+                    "MUTED",
+                    color = StudioGreenLive,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.background(StudioGreenLive.copy(alpha = 0.12f), RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
+        Text(
+            "नोट: वही ऑडियो चुनें जिसका YouTube Live/प्रसारण में उपयोग करने का लाइसेंस आपके पास हो।",
+            color = StudioTextSecondary,
+            fontSize = 11.sp
+        )
     }
 }
 
