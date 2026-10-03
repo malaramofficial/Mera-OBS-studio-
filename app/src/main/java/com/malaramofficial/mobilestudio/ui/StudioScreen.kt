@@ -1064,7 +1064,6 @@ private fun getSourceIcon(type: SourceType): ImageVector = when (type) {
 }
 
 @Composable
-@Composable
 private fun AudioMixerPanel(
     audioTrackUri: String?,
     onChooseAudio: () -> Unit,
