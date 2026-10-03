@@ -64,7 +64,7 @@ class StudioService : Service() {
                         try {
                             // MediaCodec creation and microphone initialization can
                             // block; keep them off the main/UI thread.
-                            app.broadcastController.start(endpoint, bitrateKbps)
+                            app.broadcastController.start(endpoint, bitrateKbps, livePrefs.getString(KEY_AUDIO_URI, null))
                         } catch (t: Throwable) {
                             appErrorLog(t)
                             withContext(Dispatchers.Main) { stopForegroundService() }
@@ -136,7 +136,8 @@ class StudioService : Service() {
                     try {
                         app.broadcastController.start(
                             endpoint,
-                            livePrefs.getInt(KEY_LIVE_BITRATE, 6000).coerceIn(500, 12000)
+                            livePrefs.getInt(KEY_LIVE_BITRATE, 6000).coerceIn(500, 12000),
+                            livePrefs.getString(KEY_AUDIO_URI, null)
                         )
                     } catch (t: Throwable) {
                         appErrorLog(t)
@@ -300,5 +301,6 @@ class StudioService : Service() {
         const val ACTION_RESUME_RECORDING = "com.malaramofficial.mobilestudio.ACTION_RESUME_RECORDING"
         private const val KEY_LIVE_ACTIVE = "live_active"
         private const val KEY_LIVE_BITRATE = "live_bitrate"
+        private const val KEY_AUDIO_URI = "audio_track_uri"
     }
 }
