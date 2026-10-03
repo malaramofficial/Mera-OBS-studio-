@@ -38,7 +38,7 @@ class RtmpVideoTransport(
 
     fun configure(width: Int, height: Int, fps: Int) {
         client.setVideoCodec(VideoCodec.H264)
-        client.setOnlyVideo(false)
+        client.setOnlyVideo(true)
         client.setVideoResolution(width, height)
         client.setFps(fps)
     }
@@ -46,6 +46,7 @@ class RtmpVideoTransport(
     fun configureAudio(sampleRate: Int, isStereo: Boolean, bitrateKbps: Int) {
         require(sampleRate > 0) { "Audio sample rate must be positive" }
         require(bitrateKbps > 0) { "Audio bitrate must be positive" }
+        client.setOnlyVideo(false)
         client.setAudioCodec(AudioCodec.AAC)
         client.setAudioInfo(sampleRate, isStereo)
     }
