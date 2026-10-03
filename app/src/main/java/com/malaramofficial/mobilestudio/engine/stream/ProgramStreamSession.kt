@@ -11,11 +11,10 @@ import java.nio.ByteBuffer
 
 /**
  * Owns the complete Program output path:
- * GPU Program Surface -> H.264 video + optional microphone AAC -> RTMP.
+ * GPU Program Surface -> H.264 video + optional looping file AAC -> RTMP.
  *
- * Video is the primary broadcast path. Microphone audio is attached when the
- * Android audio source is available, but a microphone permission/device failure
- * must not prevent the video stream from connecting to the RTMP server.
+ * Live microphone capture is intentionally disabled. A selected local audio
+ * file is the only audio input for poster/music broadcasts.
  */
 class ProgramStreamSession(
     private val renderPipeline: StudioRenderPipeline,
@@ -45,6 +44,7 @@ class ProgramStreamSession(
     private var started = false
     private var videoFormatReady = false
     private var audioFormatReady = false
+    private var audioExpected = false
 
     @Synchronized
     fun start(
@@ -90,6 +90,7 @@ class ProgramStreamSession(
         // The phone microphone is deliberately NOT opened for poster/music
         // streams. Only the selected local audio file is encoded into the RTMP mix.
         val selectedAudioUri = audioUri?.takeIf { it.isNotBlank() }
+        audioExpected = selectedAudioUri != null
         if (selectedAudioUri != null) {
             val appContext = context
             if (appContext != null) {
@@ -107,8 +108,10 @@ class ProgramStreamSession(
 
                     override fun onError(reason: String) {
                         audioFormatReady = false
-                        listener.onFailed("Music audio: $reason")
-                        // Do not tear down the video path if an audio file is unsupported.
+                        android.util.Log.e("ProgramStreamSession", "Music audio unavailable: $reason")
+                        audioExpected = false
+                        maybeConnect()
+                        // Keep the video-only live stream alive if this audio file is unsupported.
                     }
 
                     override fun onFrame(buffer: ByteBuffer, info: MediaCodec.BufferInfo) {
@@ -116,14 +119,16 @@ class ProgramStreamSession(
                     }
                 })
             } else {
-                listener.onFailed("Audio source context is unavailable")
+                android.util.Log.e("ProgramStreamSession", "Audio source context is unavailable")
+                audioExpected = false
+                maybeConnect()
             }
         }
     }
 
     @Synchronized
     private fun maybeConnect() {
-        if (!started || !videoFormatReady) return
+        if (!started || !videoFormatReady || (audioExpected && !audioFormatReady)) return
         val url = endpoint ?: return
         if (!transport.isStreaming()) transport.connect(url)
     }
@@ -139,6 +144,7 @@ class ProgramStreamSession(
         endpoint = null
         videoFormatReady = false
         audioFormatReady = false
+        audioExpected = false
         started = false
     }
 
